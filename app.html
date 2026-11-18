@@ -154,6 +154,32 @@
   .verdict .word { font-family:var(--display); font-weight:800; font-size:44px; letter-spacing:-1px; line-height:1; }
   .verdict .who { font-size:24px; font-weight:700; overflow-wrap:anywhere; margin-top:6px; }
   .verdict .what { font-size:15px; opacity:.85; }
+  .vphoto { width:190px; height:190px; border-radius:26px; object-fit:cover; margin:0 auto 8px; border:4px solid rgba(255,255,255,.85); background:#0003; display:block; }
+  img.av { object-fit:cover; padding:0; }
+  .lim { display:flex; flex-direction:column; gap:4px; font-size:11px; font-weight:700; color:var(--muted,#a99fd6); text-transform:uppercase; letter-spacing:.5px; }
+  .lim input { text-transform:none; letter-spacing:0; }
+  .guest { cursor:pointer; }
+  details.fold { margin-bottom:10px; border:1px solid var(--line,#382f75); border-radius:18px; background:rgba(255,255,255,.03); }
+  details.fold > summary { list-style:none; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; padding:14px 16px; font-weight:700; }
+  details.fold > summary::-webkit-details-marker { display:none; }
+  details.fold > summary .sum { font-weight:500; font-size:13px; color:var(--muted,#a99fd6); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  details.fold > summary::after { content:'›'; font-size:22px; line-height:1; color:var(--muted,#a99fd6); transition:transform .2s; }
+  details.fold[open] > summary::after { transform:rotate(90deg); }
+  details.fold > .fbody { padding:0 16px 16px; }
+  .gmodal { position:fixed; inset:0; z-index:60; background:rgba(8,6,20,.82); display:flex; align-items:flex-end; justify-content:center; }
+  .gmodal.hidden { display:none; }
+  .gcard { width:100%; max-width:520px; max-height:92vh; overflow:auto; background:var(--ink2,#1c1642); border:1px solid var(--line,#382f75); border-radius:24px 24px 0 0; padding:20px 18px 28px; }
+  .gcard img { width:100%; max-width:320px; aspect-ratio:1/1; object-fit:cover; border-radius:22px; display:block; margin:0 auto 14px; background:#0003; }
+  .gcard h3 { margin:0 0 10px; font-size:24px; text-align:center; }
+  .gcard dl { display:grid; grid-template-columns:auto 1fr; gap:6px 12px; margin:0 0 16px; font-size:15px; }
+  .gcard dt { color:var(--muted,#a99fd6); } .gcard dd { margin:0; overflow-wrap:anywhere; }
+  .rmrow { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin:0 0 10px; }
+  .rmrow button { padding:12px 8px; border-radius:12px; border:1px solid var(--line,#382f75); background:var(--ink,#120e2b); color:var(--text,#f7f2ff); font-weight:700; font-size:13px; }
+  .rmrow button.danger { border-color:var(--red,#ff5a6a); color:var(--red,#ff5a6a); }
+  .rmrow button.armed { background:var(--red,#ff5a6a); color:#fff; }
+  .schools { display:flex; flex-direction:column; gap:6px; margin-top:6px; }
+  .school { display:grid; grid-template-columns:1fr auto auto auto; gap:10px; align-items:center; padding:10px 12px; border-radius:12px; background:var(--ink,#120e2b); border:1px solid var(--line,#382f75); font-size:14px; }
+  .school b { font-weight:700; overflow-wrap:anywhere; } .school span { color:var(--muted,#a99fd6); font-size:13px; white-space:nowrap; }
   .verdict .meta { font-size:12px; font-family:var(--mono); opacity:.75; margin-top:6px; }
   .verdict.ok { background:var(--mint); color:#062a1d; }
   .verdict.warn { background:var(--sun); color:#2b1b00; }
@@ -263,7 +289,11 @@
           <input id="nBoys" type="number" inputmode="numeric" min="0" placeholder="Boys, e.g. 50">
           <input id="nGirls" type="number" inputmode="numeric" min="0" placeholder="Girls, e.g. 50">
         </div>
-        <input id="nTotal" type="number" inputmode="numeric" min="0" placeholder="Total spots, e.g. 500 (link closes when full)" style="margin-top:8px"></div>
+        <input id="nTotal" type="number" inputmode="numeric" min="0" placeholder="Total spots, e.g. 500 (link closes when full)" style="margin-top:8px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <input id="nG11L" type="number" inputmode="numeric" min="0" placeholder="Grade 11 LFIGP, e.g. 60">
+          <input id="nG11O" type="number" inputmode="numeric" min="0" placeholder="Grade 11 other schools">
+        </div></div>
       <div class="field"><label for="nStatus">Sign-ups</label>
         <select id="nStatus"><option value="Open">Open now</option><option value="Planned">Not yet (planned)</option></select></div>
       <button class="btn btn-pink" id="createBtn">Create event</button>
@@ -290,13 +320,6 @@
         <div class="mini"><b id="eGirls">0</b><span>Girls</span></div>
         <div class="mini owe"><b id="eWait">0</b><span>Waiting list</span></div>
       </div>
-      <div class="admin-only" style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:8px;margin-top:8px;align-items:center">
-        <input id="lBoys" type="number" inputmode="numeric" min="0" placeholder="Boys">
-        <input id="lGirls" type="number" inputmode="numeric" min="0" placeholder="Girls">
-        <input id="lTotal" type="number" inputmode="numeric" min="0" placeholder="Total">
-        <button class="btn btn-small" id="limBtn" type="button">Save</button>
-      </div>
-      <div class="msg admin-only" id="limMsg" style="margin-top:4px">Spot limits. Blank = no limit. Boys/girls full: new sign-ups go to the Waiting List. Total full: the link closes for everyone.</div>
       <div id="fullBox" class="hidden admin-only" style="margin-top:8px;padding:12px;border-radius:14px;background:rgba(255,90,106,.12);border:1px solid var(--red,#ff5a6a)">
         <b style="color:var(--red,#ff5a6a)">Full: the sign-up link is closed.</b>
         <div class="msg" style="margin:4px 0 8px">The total limit is reached. Reopen it to let more people sign up (this removes the total limit).</div>
@@ -307,15 +330,43 @@
       <button class="btn btn-pink" id="scanBtn"><svg><use href="#i-scan"/></svg>Scan tickets</button>
       <button class="btn btn-ghost admin-only" id="shareBtn"><svg><use href="#i-share"/></svg>Share sign-up link</button>
     </div>
-    <div class="panel admin-only" style="margin-bottom:18px">
+    <details class="fold admin-only" id="limFold">
+      <summary><span>Limits &amp; grade 11</span><span class="sum" id="limSum">No limits</span></summary>
+      <div class="fbody">
+        <div class="chips3" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
+          <div class="mini"><b id="eG11L">0</b><span>Grade 11 · LFIGP</span></div>
+          <div class="mini"><b id="eG11O">0</b><span>Grade 11 · other schools</span></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <label class="lim">Boys<input id="lBoys" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+          <label class="lim">Girls<input id="lGirls" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+          <label class="lim">Total<input id="lTotal" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <label class="lim">Grade 11 · LFIGP<input id="lG11L" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+          <label class="lim">Grade 11 · others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+        </div>
+        <button class="btn btn-small" id="limBtn" type="button" style="margin-top:10px;width:100%">Save limits</button>
+        <div class="msg" id="limMsg" style="margin-top:6px">Blank = no limit. Change any time, even live.</div>
+        <details style="margin-top:6px"><summary class="muted" style="font-size:13px;cursor:pointer">What happens when a limit is full?</summary>
+          <div class="msg" style="margin-top:6px;line-height:1.5">Boys/girls full: new sign-ups go to the waiting list.<br>Total full: the link closes for everyone.<br>Grade 11 full (LFIGP or other schools): the next grade 11 from that group, boy or girl, is told "fully booked" and locked out of this event.</div>
+        </details>
+      </div>
+    </details>
+    <details class="fold admin-only" id="schFold">
+      <summary><span>Schools</span><span class="sum" id="schSum"></span></summary>
+      <div class="fbody"><div class="schools" id="schoolList"></div></div>
+    </details>
+    <div class="panel admin-only" style="margin-bottom:10px">
       <div class="eyebrow" style="margin-bottom:10px">Status</div>
       <div class="seg" id="seg">
         <button data-s="Planned">Planned</button><button data-s="Open">Open</button><button data-s="Closed">Closed</button><button data-s="Done">Done</button>
       </div>
       <div class="seg-hint" id="segHint"></div>
     </div>
-    <div class="panel admin-only" id="grpPanel" style="margin-bottom:18px">
-      <div class="eyebrow" style="margin-bottom:6px">WhatsApp group</div>
+    <details class="fold admin-only" id="grpPanel" style="margin-bottom:18px">
+      <summary><span>WhatsApp group</span><span class="sum" id="grpSum">Set up after sign-ups close</span></summary>
+      <div class="fbody">
       <div id="grpNudge" class="hidden" style="margin-bottom:10px;padding:10px 12px;border-radius:12px;background:rgba(37,211,102,.14);border:1px solid #25d366;font-weight:700">Sign-ups are closed. Now make the group and send everyone their link.</div>
       <ol style="margin:0 0 10px 18px;padding:0;line-height:1.55;font-size:14px;color:var(--muted)">
         <li>In WhatsApp, create the group with <b>only Alexandre and William</b>, then make them admins.</li>
@@ -331,7 +382,8 @@
       </div>
       <button class="btn btn-pink" id="gSend" type="button" style="margin-top:10px;background:#25d366;color:#06240f">Send group link to everyone</button>
       <div class="msg" id="gMsg" style="margin-top:6px"></div>
-    </div>
+      </div>
+    </details>
     <div class="row-between" style="margin-bottom:10px"><div class="eyebrow">Guest list</div><span class="muted" id="gCount" style="font-size:13px"></span></div>
     <input id="search" placeholder="Search names or ticket IDs" style="margin-bottom:10px">
     <div class="filters" id="filters" style="margin-bottom:12px">
@@ -367,6 +419,7 @@
     </div>
     <div class="cam-msg hidden" id="camMsg" role="status"></div>
     <div id="verdict" class="verdict hidden" style="margin-top:12px">
+      <img id="vPhoto" class="vphoto hidden" alt="Their sign-up photo">
       <div class="word" id="vWord"></div>
       <div class="who" id="vWho"></div>
       <div class="what" id="vWhat"></div>
@@ -399,6 +452,23 @@
   </section>
 </div>
 
+<div class="gmodal hidden" id="gModal">
+  <div class="gcard">
+    <img id="gmPhoto" alt="Sign-up photo">
+    <h3 id="gmName"></h3>
+    <dl id="gmInfo"></dl>
+    <div class="admin-only">
+      <div class="rmrow" id="gmRemove">
+        <button type="button" class="danger" data-how="full">Remove: too full<br><small>emails them</small></button>
+        <button type="button" class="danger" data-how="kick">Kick for this event</button>
+        <button type="button" class="danger" data-how="ban">Ban forever</button>
+        <button type="button" data-how="">Restore</button>
+      </div>
+      <div class="msg" id="gmMsg" style="margin-bottom:10px"></div>
+    </div>
+    <button class="btn btn-line" id="gmClose" type="button" style="width:100%">Close</button>
+  </div>
+</div>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
@@ -548,12 +618,12 @@
     go('vEvent');
   }
 
-  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal'].forEach(function (i) { $(i).value = ''; }); go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
+  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal', 'nG11L', 'nG11O'].forEach(function (i) { $(i).value = ''; }); go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
   $('createBtn').onclick = function () {
     var name = $('nName').value.trim();
     if (!name) { $('newMsg').textContent = 'Give the event a name first.'; return; }
     $('createBtn').disabled = true; $('newMsg').textContent = 'Creating…';
-    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim() })
+    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim(), g11Lfigp: $('nG11L').value.trim(), g11Other: $('nG11O').value.trim() })
       .then(function (r) {
         $('createBtn').disabled = false;
         if (!r.ok) { $('newMsg').textContent = r.error; return; }
@@ -576,10 +646,17 @@
     var lim = function (n, l) { return (n || 0) + (l === '' || l === undefined || l === null ? '' : ' / ' + l); };
     $('eBoys').textContent = lim(s.boys, cur && cur.boysLimit); $('eGirls').textContent = lim(s.girls, cur && cur.girlsLimit);
     $('eWait').textContent = s.waiting || 0;
+    $('eG11L').textContent = lim(s.g11Lfigp, cur && cur.g11Lfigp); $('eG11O').textContent = lim(s.g11Other, cur && cur.g11Other);
     var tl = cur && cur.totalLimit;
     $('eUp').textContent = s.signedUp + (tl === '' || tl === undefined || tl === null ? '' : ' / ' + tl);
     var full = !(tl === '' || tl === undefined || tl === null) && s.signedUp >= Number(tl);
     $('fullBox').classList.toggle('hidden', !full);
+    var nl = function (v) { return v === '' || v === undefined || v === null; };
+    var parts = [];
+    if (cur && !nl(cur.boysLimit)) parts.push('B ' + cur.boysLimit); if (cur && !nl(cur.girlsLimit)) parts.push('G ' + cur.girlsLimit);
+    if (cur && !nl(tl)) parts.push('Total ' + tl);
+    if (cur && (!nl(cur.g11Lfigp) || !nl(cur.g11Other))) parts.push('G11 ' + (nl(cur.g11Lfigp) ? '–' : cur.g11Lfigp) + '/' + (nl(cur.g11Other) ? '–' : cur.g11Other));
+    $('limSum').textContent = parts.length ? parts.join(' · ') : 'No limits';
   }
   function renderEventHeader() {
     $('eName').textContent = cur.name;
@@ -589,6 +666,7 @@
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
+    $('lG11L').value = cur.g11Lfigp === undefined ? '' : cur.g11Lfigp; $('lG11O').value = cur.g11Other === undefined ? '' : cur.g11Other;
     setStats(cur.stats || { signedUp: 0, checkedIn: 0, paid: 0 });
     $('gLink').value = cur.groupLink || '';
     $('grpNudge').classList.toggle('hidden', !(cur.status === 'Closed' || cur.status === 'Done'));
@@ -598,6 +676,8 @@
     if (!cur || !guests) return;
     var ok = guests.filter(function (g) { return !g.removed && !g.suspicious; });
     var sent = ok.filter(function (g) { return g.groupSent; }).length, opened = ok.filter(function (g) { return g.groupOpened; }).length;
+    var closed = cur.status === 'Closed' || cur.status === 'Done';
+    $('grpSum').textContent = cur.groupLink && sent ? sent + '/' + ok.length + ' sent · ' + opened + ' opened' : closed ? 'Ready: send the links' : 'Set up after sign-ups close';
     if (!cur.groupLink) $('gMsg').textContent = 'No group link saved yet.';
     else $('gMsg').textContent = 'Links sent: ' + sent + ' of ' + ok.length + ' · Opened: ' + opened + '. Kicked, banned and suspicious people never get a link.';
   }
@@ -635,12 +715,12 @@
   };
   $('limBtn').onclick = function () {
     if (!cur) return;
-    var b = $('lBoys').value.trim(), g = $('lGirls').value.trim(), t = $('lTotal').value.trim();
+    var b = $('lBoys').value.trim(), g = $('lGirls').value.trim(), t = $('lTotal').value.trim(), gl = $('lG11L').value.trim(), go11 = $('lG11O').value.trim();
     $('limMsg').textContent = 'Saving…';
-    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t }).then(function (r) {
+    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11 }).then(function (r) {
       if (!r.ok) { $('limMsg').textContent = r.error || 'Could not save.'; return; }
-      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; setStats(cur.stats);
-      $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ' · Girls: ' + (g || 'no limit') + ' · Total: ' + (t || 'no limit') + '.';
+      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; setStats(cur.stats);
+      $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ' · Girls: ' + (g || 'no limit') + ' · Total: ' + (t || 'no limit') + ' · G11 LFIGP: ' + (gl || 'no limit') + ' · G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
   function loadGuests() {
@@ -652,7 +732,7 @@
       if (!cur || cur.id !== id) return;
       if (!r.ok) { $('gList').innerHTML = '<div class="empty">' + esc(r.error) + '</div>'; return; }
       Object.assign(cur, r.event); guests = r.guests; jset('bq_g_' + id, guests); setStats(r.stats);
-      if (view === 'vEvent') { renderEventHeader(); renderGuests(); }
+      if (view === 'vEvent') { renderEventHeader(); renderGuests(); renderSchools(); }
     }).catch(function () { pending--; });
   }
   function renderGuests(loading) {
@@ -668,13 +748,16 @@
     $('gCount').textContent = guests.length ? (list.length + ' shown') : '';
     if (!guests.length) { $('gList').innerHTML = '<div class="empty">' + (loading ? 'Loading guests…' : '<b>No one yet</b>Share the sign-up link to start filling the list.') + '</div>'; return; }
     $('gList').innerHTML = list.map(function (g) {
-      return '<div class="guest"><div class="av" style="background:' + avColor(g.id) + '">' + esc(initials(g.name).toUpperCase()) + '</div>' +
-        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? '⛔ Banned' : '✕ Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">⚠ Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">❔ Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + '</span>' +
+      return '<div class="guest" data-g="' + esc(g.id) + '">' + (g.thumb ? '<img class="av" alt="" src="' + esc(g.thumb) + '">' : '<div class="av" style="background:' + avColor(g.id) + '">' + esc(initials(g.name).toUpperCase()) + '</div>') +
+        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">⚠ Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">❔ Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ' · ' + esc(g.school) : '') + '</span>' +
         (g.checkedIn ? '<span class="in">✓ In ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' · ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
         '</div></div><button class="pay' + (g.paid ? ' yes' : '') + '" data-t="' + esc(g.id) + '">' + (g.paid ? 'PAID' : 'NOT PAID') + '</button></div>';
     }).join('') || '<div class="empty">No one matches that.</div>';
     Array.prototype.forEach.call($('gList').querySelectorAll('.pay'), function (b) {
-      b.onclick = function () { togglePaid(b.getAttribute('data-t'), b); };
+      b.onclick = function (e) { e.stopPropagation(); togglePaid(b.getAttribute('data-t'), b); };
+    });
+    Array.prototype.forEach.call($('gList').querySelectorAll('.guest'), function (row) {
+      row.onclick = function () { openGuest(row.getAttribute('data-g')); };
     });
   }
   function togglePaid(ticket, btn) {
@@ -812,8 +895,9 @@
     enqueue('scan', { event: cur.id, code: c });
     if (evId && evId !== cur.id.toUpperCase()) { buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', 'Saved offline', '', null); }
     var g = guests.find(function (x) { return x.id.toUpperCase() === t; });
+    scanPhoto = (g && g.thumb) || '';
     if (!g) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'Not in the saved guest list', 'Offline: if they signed up very recently, check again once online.', '', null); }
-    var who = g.name, what = 'Grade ' + g.grade + ' · ' + (g.paid ? 'Paid' : 'Not paid');
+    var who = g.name, what = 'Grade ' + g.grade + (g.school ? ' · ' + g.school : '') + ' · ' + (g.paid ? 'Paid' : 'Not paid');
     if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : 'Removed', who, 'Taken off the list. Do not let in.', 'Tell them to text Andrea · ' + g.id, null); }
     if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, 'Matches the Blocked list. Do not let in.', 'Tell them to text Andrea · ' + g.id, null); }
     if ([11, 12].indexOf(Number(g.grade)) < 0) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Only grades 11 & 12 allowed', g.id, null); }
@@ -825,8 +909,9 @@
     if (g.paid) verdict('ok', 'Let them in', who, what, 'Saved offline · syncs when back online', true);
     else verdict('warn', 'Collect payment', who, what, 'Saved offline · syncs when back online', false);
   }
+  var scanPhoto = '';
   function lookup(code) {
-    busy = true; lastScan = null;
+    busy = true; lastScan = null; scanPhoto = '';
     verdict('wait', 'Checking…', '', '', '', null);
     api('scan', { event: cur.id, code: code }).then(function (r) {
       setStats(r.stats);
@@ -835,10 +920,11 @@
       if (!r.found) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'This ticket is not in this event', '', '', null); }
       lastScan = r;
       var g = guests.find(function (x) { return x.id === r.id; });
+      scanPhoto = r.photo || (g && g.thumb) || '';
       if (g && r.eligible && !r.alreadyCheckedIn) { g.checkedIn = true; g.time = r.time; g.by = r.by; }
       if (g && r.suspicious) g.suspicious = true;
-      var who = r.name, what = 'Grade ' + r.grade + ' · ' + (r.paid ? 'Paid' : 'Not paid');
-      if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', r.removed === 'ban' ? 'Banned' : 'Removed', who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea · ' + r.id, null); }
+      var who = r.name, what = 'Grade ' + r.grade + (r.school ? ' · ' + r.school : '') + ' · ' + (r.paid ? 'Paid' : 'Not paid');
+      if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed', who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea · ' + r.id, null); }
       if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea · ' + r.id, null); }
       if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Grade ' + r.grade + ' · only 11 & 12 allowed', r.id, null); }
       if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + r.time + (r.by ? ' · scanned by ' + r.by : ''), null); }
@@ -852,11 +938,76 @@
     var el = $('verdict');
     el.className = 'verdict ' + kind;
     $('vWord').textContent = word; $('vWho').textContent = who; $('vWhat').textContent = what; $('vMeta').textContent = meta;
+    if (kind !== 'wait' && scanPhoto) { $('vPhoto').src = scanPhoto; $('vPhoto').classList.remove('hidden'); } else $('vPhoto').classList.add('hidden');
     $('markPaidBtn').classList.toggle('hidden', !(paid === false && lastScan));
     $('nextBtn').classList.toggle('hidden', kind === 'wait');
     $('camBox').classList.toggle('hidden', kind !== 'wait' && false);
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+  // Guest profile: big photo + everything they signed up with. Lets admins and scanners preview the list before the event.
+  function openGuest(id) {
+    var g = guests.find(function (x) { return x.id === id; });
+    if (!g) return;
+    $('gmName').textContent = g.name;
+    $('gmPhoto').src = g.thumb || ''; $('gmPhoto').style.visibility = g.thumb ? 'visible' : 'hidden';
+    var rows = [['Ticket', g.id], ['Grade', g.grade], ['School', g.school || '–'], ['Gender', g.gender || '–'], ['WhatsApp', g.phone || '–'],
+      ['Email', g.email || '–'], ['Signed up', g.signedUp || '–'], ['Paid', g.paid ? 'Yes' : 'No'],
+      ['Checked in', g.checkedIn ? ('Yes · ' + (g.time || '') + (g.by ? ' · ' + g.by : '')) : 'Not yet'],
+      ['Status', g.removed ? (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') : (g.suspicious ? '⚠ Suspicious' : (g.check ? '❔ Check ID' : 'OK'))]];
+    $('gmInfo').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+    $('gModal').classList.remove('hidden');
+    gmCur = id; $('gmMsg').textContent = '';
+    Array.prototype.forEach.call($('gmRemove').querySelectorAll('button'), function (b) { b.classList.remove('armed'); b.disabled = false; });
+    api('guestPhoto', { event: cur.id, ticket: id }).then(function (r) {
+      if (r.ok && r.photo && !$('gModal').classList.contains('hidden')) { $('gmPhoto').src = r.photo; $('gmPhoto').style.visibility = 'visible'; }
+    }).catch(function () {});
+  }
+  $('gmClose').onclick = function () { $('gModal').classList.add('hidden'); };
+  // Remove someone from the app. First tap arms the button, second tap does it.
+  var gmCur = '';
+  Array.prototype.forEach.call($('gmRemove').querySelectorAll('button'), function (b) {
+    b.onclick = function () {
+      if (!b.classList.contains('armed')) {
+        Array.prototype.forEach.call($('gmRemove').querySelectorAll('button'), function (x) { x.classList.remove('armed'); });
+        b.classList.add('armed');
+        var how = b.getAttribute('data-how');
+        $('gmMsg').textContent = how === 'full' ? 'Tap again: their ticket is cancelled and they get an email saying the event got too full.' :
+          how === 'kick' ? 'Tap again: their QR stops working for this event (no email).' :
+          how === 'ban' ? 'Tap again: their QR stops working and they can never sign up again.' : 'Tap again to put them back on the list.';
+        return;
+      }
+      var how2 = b.getAttribute('data-how'), id = gmCur;
+      b.disabled = true; $('gmMsg').textContent = 'Saving…';
+      api('removeGuest', { event: cur.id, ticket: id, how: how2 }).then(function (r) {
+        b.disabled = false; b.classList.remove('armed');
+        if (!r.ok) { $('gmMsg').textContent = r.error || 'Could not save.'; return; }
+        var g = guests.find(function (x) { return x.id === id; }); if (g) g.removed = r.removed || '';
+        setStats(r.stats); renderGuests(); renderSchools();
+        $('gmMsg').textContent = how2 === 'full' ? 'Done. Their ticket is cancelled and they were emailed.' : how2 === 'kick' ? 'Done. Kicked for this event.' : how2 === 'ban' ? 'Done. Banned and added to the Blocked tab.' : 'Done. They are back on the list.';
+        openGuestInfo(id);
+      }).catch(function () { b.disabled = false; $('gmMsg').textContent = 'No connection. Try again.'; });
+    };
+  });
+  function openGuestInfo(id) {
+    var g = guests.find(function (x) { return x.id === id; }); if (!g) return;
+    var dd = $('gmInfo').querySelectorAll('dd'); if (dd.length) dd[dd.length - 1].textContent = g.removed ? (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') : 'OK';
+  }
+  // Schools: how many boys and girls signed up from each school (people removed don't count).
+  function renderSchools() {
+    var m = {};
+    guests.forEach(function (g) {
+      if (g.removed) return;
+      var k = (g.school || 'Not given').trim() || 'Not given', key = k.toLowerCase();
+      if (!m[key]) m[key] = { name: k, boys: 0, girls: 0, g11: 0, total: 0 };
+      m[key].total++; if (g.gender === 'Boy') m[key].boys++; if (g.gender === 'Girl') m[key].girls++; if (Number(g.grade) === 11) m[key].g11++;
+    });
+    var list = Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.total - a.total; });
+    $('schSum').textContent = list.length ? list.length + ' school' + (list.length === 1 ? '' : 's') : '';
+    $('schoolList').innerHTML = list.length ? list.map(function (s) {
+      return '<div class="school"><b>' + esc(s.name) + '</b><span>' + s.boys + ' boys</span><span>' + s.girls + ' girls</span><span>' + s.total + ' total · ' + s.g11 + ' G11</span></div>';
+    }).join('') : '<div class="msg">No sign-ups yet.</div>';
+  }
+  $('gModal').onclick = function (e) { if (e.target === $('gModal')) $('gModal').classList.add('hidden'); };
   function hideVerdict() { $('verdict').className = 'verdict hidden'; busy = false; }
   $('markPaidBtn').onclick = function () {
     if (!lastScan) return;

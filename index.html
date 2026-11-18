@@ -33,6 +33,11 @@
   .sub { color:var(--muted); margin:0; line-height:1.5; }
   .card { background:var(--ink2); border:1px solid var(--line); border-radius:24px; padding:20px; display:flex; flex-direction:column; gap:14px; }
   .field { display:flex; flex-direction:column; gap:6px; }
+  .photoRow { display:flex; align-items:center; gap:14px; }
+  .ph { width:84px; height:84px; flex:none; border-radius:50%; border:2px dashed var(--line); background:var(--ink) center/cover no-repeat; display:grid; place-items:center; color:var(--faint); font-size:12px; text-align:center; }
+  .ph.on { border:2px solid var(--pink); color:transparent; }
+  .phBtn { flex:1; text-align:center; padding:14px; border-radius:14px; border:1px solid var(--line); background:var(--ink3); color:var(--text); font-weight:700; cursor:pointer; }
+  .hint { color:var(--muted); font-size:13px; line-height:1.4; }
   label { font-size:13px; font-weight:600; color:var(--muted); }
   input, select { width:100%; padding:15px; font-size:16px; font-family:var(--body); border-radius:14px; border:1px solid var(--line); background:var(--ink); color:var(--text); }
   input::placeholder { color:var(--faint); }
@@ -102,16 +107,33 @@
           </select>
         </div>
         <div class="field">
+          <label for="school">School</label>
+          <select id="school" required>
+            <option value="" disabled selected>Which school are you from?</option>
+            <option value="LFIGP">LFIGP</option><option value="other">Another school</option>
+          </select>
+          <input id="schoolOther" type="text" maxlength="60" autocomplete="organization" placeholder="Write the name of your school" hidden>
+        </div>
+        <div class="field">
           <label for="grade">Grade</label>
           <select id="grade" required>
             <option value="" disabled selected>Select your grade</option>
             <option>9</option><option>10</option><option>11</option><option>12</option>
           </select>
         </div>
+        <div class="field">
+          <label for="photo">Photo of your face</label>
+          <div class="photoRow">
+            <div class="ph" id="phPrev">No photo yet</div>
+            <label class="phBtn" for="photo" id="phLabel">Take a selfie</label>
+          </div>
+          <input id="photo" type="file" accept="image/*" capture="user" hidden>
+          <div class="hint">Required. It's shown at the door so we know it's really you: face clearly visible, no filters or sunglasses.</div>
+        </div>
         <button id="btn" type="submit">Get my ticket</button>
         <div class="err" id="err" role="alert"></div>
       </form>
-      <div class="fine">Only grades 11 and 12 can get tickets. Your name, email and grade go to the organizers only.</div>
+      <div class="fine">Only grades 11 and 12 can get tickets. Your details and photo go to the organizers only.</div>
     </div>
 
     <div class="view" id="vTicket">
@@ -140,7 +162,7 @@
         <p class="sub" id="waitWhy">All the spots for this event are taken right now, so you've been added to the waiting list. You don't have a ticket yet.</p>
       </div>
       <div class="card">
-        <p class="sub" style="color:var(--text)">Text <b>Andrea</b> for more info. If a spot opens up, your ticket will be emailed to you.</p>
+        <p class="sub" style="color:var(--text)">Questions? Text <b>Andrea</b>. If a spot opens up for you, your ticket will be emailed.</p>
         <div class="tid" style="text-align:center;font-size:20px;color:var(--text);user-select:all">050 276 2056</div>
         <a class="wa" href="https://wa.me/971502762056" rel="noopener">Text Andrea on WhatsApp</a>
       </div>
@@ -246,10 +268,11 @@
     if (bi.why === 'phone') why = 'The WhatsApp number you entered' + (bi.phone ? ' (' + bi.phone + ')' : '') + ' is not a valid number.';
     else if (bi.why === 'email') why = 'You entered an email that is not valid, twice. Your QR ticket is sent to your email, so a real one is needed.';
     else if (bi.why === 'banned') why = 'You were banned by the organisers.';
+    else if (bi.why === 'photo') why = 'Your profile photo didn\'t show your face, twice. A clear photo of your face is needed to get in.';
     else why = 'You picked grade ' + (bi.grade || '9 or 10') + '. This event is only for grades 11 and 12.';
     if (bi.matched) {
       var what = { device: 'This phone or laptop', phone: 'Your WhatsApp number', email: 'Your email', name: 'Your name' }[bi.matched] || 'Your details';
-      var short = { phone: 'a fake WhatsApp number', email: 'a fake email used twice', banned: 'being banned by the organisers' }[bi.why] ||
+      var short = { phone: 'a fake WhatsApp number', email: 'a fake email used twice', banned: 'being banned by the organisers', photo: 'a photo with no face, twice' }[bi.why] ||
         ('signing up as grade ' + (bi.grade || '9 or 10'));
       why = what + ' matches someone who is already blocked (blocked for ' + short + ').';
     }
@@ -262,7 +285,10 @@
   // Blocked once = blocked for every event on this phone.
   var BK = 'lfigp_blocked', BI = 'lfigp_bi';
   if (store.get(BK)) showBlocked();
-  var deviceCheck = call({ action: 'checkDevice', device: DEVICE }).then(function (r) {
+  var FB = 'lfigp_fb_' + EVENT_ID;
+  var FULL_TXT = 'Sorry, this event is fully booked. See you at the next one!';
+  var deviceCheck = call({ action: 'checkDevice', device: DEVICE, event: EVENT_ID }).then(function (r) {
+    if (r && r.fullyBooked) store.set(FB, '1');
     if (r && r.blocked) {
       var old = {}; try { old = JSON.parse(store.get(BI) || '{}'); } catch (e) {}
       if (r.why && !old.why) { old.why = r.why; old.grade = r.grade || old.grade; store.set(BI, JSON.stringify(old)); }
@@ -296,6 +322,8 @@
       fill('evMeta', ev.date || 'Sign up to get your QR ticket.');
       document.querySelector('#vTicket .evMeta').textContent = ev.date || '';
       if (ev.full) $('closedMsg').textContent = ev.fullMsg || 'Sorry, this event is full, so sign-ups are closed.';
+      // Told "fully booked" for this event before: it stays that way on this phone, even after a refresh.
+      if (store.get(FB)) { $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
       show(ev.open ? 'vForm' : 'vClosed');
     }).catch(function () {
       $('invalidMsg').textContent = 'No internet connection. Connect and reload this page.';
@@ -305,12 +333,96 @@
   loadEvent();
 
   $('saveBtn').onclick = saveTicket;
+  $('school').onchange = function () {
+    var other = $('school').value === 'other';
+    $('schoolOther').hidden = !other; if (other) $('schoolOther').focus();
+  };
+  // Face photo: cropped to a square and shrunk on the phone (about 25 KB), plus a tiny thumbnail for the guest list.
+  var PHOTO = '', THUMB = '';
+  function shrink(img, size, q) {
+    var c = document.createElement('canvas'); c.width = size; c.height = size;
+    var s = Math.min(img.width, img.height), sx = (img.width - s) / 2, sy = (img.height - s) / 2.5;
+    c.getContext('2d').drawImage(img, sx, Math.max(0, sy), s, s, 0, 0, size, size);
+    return c.toDataURL('image/jpeg', q);
+  }
+  // Face check, done on the phone: a black/blank photo or one with no face is a strike (1st = warning, 2nd = blocked).
+  var FACE_LIB = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/dist/face-api.js';
+  var FACE_MODEL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api@1.7.15/model/';
+  var faceReady = null;
+  function loadFace() {
+    if (faceReady) return faceReady;
+    faceReady = new Promise(function (ok, bad) {
+      var sc = document.createElement('script'); sc.src = FACE_LIB; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc);
+    }).then(function () { return window.faceapi.nets.tinyFaceDetector.loadFromUri(FACE_MODEL); });
+    faceReady.catch(function () { faceReady = null; });
+    return faceReady;
+  }
+  function lightStats(img) {
+    var c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    var x = c.getContext('2d'); x.drawImage(img, 0, 0, 64, 64);
+    var d = x.getImageData(0, 0, 64, 64).data, s = 0, s2 = 0, n = 0;
+    for (var i = 0; i < d.length; i += 4) { var l = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]; s += l; s2 += l * l; n++; }
+    var m = s / n; return { mean: m, sd: Math.sqrt(Math.max(0, s2 / n - m * m)) };
+  }
+  // '' = fine, 'dark' / 'blank' / 'noface' = strike, 'small' = retake without a strike, 'skip' = detector couldn't load.
+  function faceCheck(img) {
+    var st = lightStats(img);
+    if (st.mean < 22) return Promise.resolve('dark');
+    if (st.sd < 6) return Promise.resolve('blank');
+    return loadFace().then(function () {
+      var c = document.createElement('canvas'), S = Math.min(img.width, img.height), sz = 416; c.width = sz; c.height = sz;
+      c.getContext('2d').drawImage(img, (img.width - S) / 2, Math.max(0, (img.height - S) / 2.5), S, S, 0, 0, sz, sz);
+      return faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 }));
+    }).then(function (dets) {
+      if (!dets.length) return 'noface';
+      return dets.some(function (d) { return d.box.width * d.box.height > 416 * 416 * 0.025; }) ? '' : 'small';
+    }, function () { return 'skip'; });
+  }
+  function photoReset(label) {
+    PHOTO = ''; THUMB = ''; $('photo').value = '';
+    $('phPrev').style.backgroundImage = ''; $('phPrev').classList.remove('on'); $('phLabel').textContent = label || 'Take a selfie';
+  }
+  $('photo').onchange = function () {
+    var f = this.files && this.files[0];
+    if (!f) return;
+    $('err').textContent = '';
+    $('phLabel').textContent = 'Checking your photo…';
+    var url = URL.createObjectURL(f), img = new Image();
+    img.onload = function () {
+      faceCheck(img).then(function (problem) {
+        URL.revokeObjectURL(url);
+        if (problem === 'small') { photoReset('Retake photo'); $('err').textContent = 'Your face is too small or too far. Take a closer selfie so your face fills the circle.'; return; }
+        if (problem === 'dark' || problem === 'blank' || problem === 'noface') {
+          photoReset('Retake photo');
+          var why = problem === 'noface' ? 'No face found' : (problem === 'dark' ? 'Black / too dark' : 'Blank photo');
+          call({ action: 'badPhoto', event: EVENT_ID, device: DEVICE, problem: why, name: $('name').value.trim(), email: $('email').value.trim(),
+                 phone: $('phone').value.trim(), grade: $('grade').value }).then(function (r) {
+            if (r && r.blocked) { showBlocked({ name: $('name').value.trim(), email: $('email').value.trim(), grade: $('grade').value, phone: $('phone').value.trim(), why: r.why || 'photo' }); return; }
+            $('err').textContent = 'Warning: we couldn\'t see a face in that photo (' + why.toLowerCase() + '). Take a clear selfie of your face. If the next photo has no face too, you\'ll be blocked and will have to contact Andrea.';
+          }).catch(function () { $('err').textContent = 'We couldn\'t see a face in that photo. Take a clear selfie of your face.'; });
+          return;
+        }
+        try {
+          PHOTO = shrink(img, 320, 0.72);
+          if (PHOTO.length > 68000) PHOTO = shrink(img, 280, 0.6);
+          THUMB = shrink(img, 72, 0.6);
+          $('phPrev').style.backgroundImage = 'url(' + PHOTO + ')'; $('phPrev').classList.add('on');
+          $('phLabel').textContent = 'Retake photo';
+        } catch (e) { photoReset(); $('err').textContent = 'That photo didn\'t work. Try again.'; }
+      });
+    };
+    img.onerror = function () { $('phLabel').textContent = 'Take a selfie'; $('err').textContent = 'That photo didn\'t work. Try again with your camera.'; };
+    img.src = url;
+  };
   $('f').addEventListener('submit', function (e) {
     e.preventDefault();
-    var name = $('name').value.trim(), email = $('email').value.trim(), grade = $('grade').value, phone = $('phone').value.trim(), gender = $('gender').value;
+    var name = $('name').value.trim(), email = $('email').value.trim(), grade = $('grade').value, phone = $('phone').value.trim(), gender = $('gender').value,
+        school = $('school').value === 'other' ? $('schoolOther').value.trim() : $('school').value;
     var err = $('err');
     err.textContent = '';
     if (!gender) { err.textContent = 'Pick boy or girl.'; return; }
+    if (!$('school').value) { err.textContent = 'Pick your school.'; return; }
+    if ($('school').value === 'other' && school.length < 2) { err.textContent = 'Write the name of your school.'; $('schoolOther').focus(); return; }
     if (!grade) { err.textContent = 'Pick your grade.'; return; }
     if (grade !== '11' && grade !== '12') {
       showBlocked({ name: name, email: email, grade: grade, phone: phone });
@@ -331,12 +443,18 @@
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email address.'; return; }
+    if (!PHOTO) { err.textContent = 'Add a photo of your face (tap Take a selfie).'; return; }
     var btn = $('btn');
     btn.disabled = true; btn.textContent = 'Getting your ticket…';
-    call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, device: DEVICE }).then(function (res) {
+    call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: PHOTO, thumb: THUMB, device: DEVICE }).then(function (res) {
+      if (res && res.fullyBooked) { store.set(FB, '1'); $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
       if (res && res.full) { $('closedMsg').textContent = res.error; show('vClosed'); return; }
       if (res && res.waitlist) {
-        $('waitWhy').textContent = 'All the ' + (res.gender === 'Girl' ? "girls'" : "boys'") + ' spots for this event are taken right now, so you\'ve been added to the waiting list. You don\'t have a ticket yet.';
+        if (res.told === 'full') {
+          $('closedMsg').textContent = 'Error: too full. Sorry, see you in the next one!';
+          show('vClosed'); return;
+        }
+        $('waitWhy').textContent = "You're on the waiting list. If you don't get contacted by Andrea, Alexandre or William, it means the event is fully out of capacity. See you in the next one!";
         show('vWait'); return;
       }
       if (res && (res.blocked || res.kicked)) { showBlocked({ name: name, email: email, grade: res.grade || grade, phone: phone, why: res.why || '', matched: res.matched || '' }); return; }
