@@ -412,6 +412,16 @@
       <button class="btn btn-pink" id="saveBtn">Sign in</button>
       <div class="msg" id="setMsg"></div>
     </div>
+    <div class="group admin-only hidden" id="staffBox" style="margin-top:18px">
+      <div class="panel stack">
+        <div><h3 style="margin:0">Staff codes</h3>
+        <p class="muted" style="margin:4px 0 0">A new code switches the old one off straight away. Use it when someone leaves, loses their phone, or has a short code.</p></div>
+        <div id="staffList"></div>
+        <button class="btn btn-ghost hidden" id="fixWeakBtn">Give strong codes to everyone with a short one</button>
+        <div id="newCodes"></div>
+        <div class="msg" id="staffMsg"></div>
+      </div>
+    </div>
   </section>
 
   <!-- EVENTS -->
@@ -651,7 +661,7 @@
     return fetch(API, { method: 'POST', body: JSON.stringify(p), headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         credentials: 'omit', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined })
       .then(function (res) { return res.json(); })
-      .then(function (r) { clearTimeout(timer); lastOk = Date.now(); setLive(true); return r; })
+      .then(function (r) { clearTimeout(timer); lastOk = Date.now(); setLive(true); if (r && r.ok === false && r.error === 'Wrong admin key' && p.key && p.key === store.get('ev_key')) signedOut(); return r; })
       .catch(function (e) { clearTimeout(timer); if (!(e && e.name === 'AbortError')) setLive(false); throw e; });
   }
   // "2026-12-12" -> "Sat 12 Dec" (with the year when it isn't this year).
@@ -707,7 +717,55 @@
     refresh();
   }
   $('backBtn').onclick = function () { var p = history.pop() || 'vEvents'; go(p, false); };
-  $('setBtn').onclick = function () { $('key').value = cfg.key; go('vSettings'); };
+  $('setBtn').onclick = function () { $('key').value = cfg.key; go('vSettings'); loadStaff(); };
+
+  /* ---------- staff codes ---------- */
+  // This phone's code was replaced or switched off (for example after a lost phone): sign out here.
+  function signedOut() {
+    store.set('ev_key', ''); cfg.key = ''; $('key').value = '';
+    $('staffBox').classList.add('hidden');
+    go('vSettings', false);
+    $('setMsg').textContent = 'Your staff code was changed or switched off. Ask an admin for your new code.';
+  }
+  function loadStaff() {
+    if (!cfg.key || store.get('ev_role') === 'scanner') { $('staffBox').classList.add('hidden'); return; }
+    api('staffList').then(function (r) {
+      if (!r.ok) return;
+      $('staffBox').classList.remove('hidden');
+      var weak = 0;
+      $('staffList').innerHTML = r.staff.map(function (m) {
+        if (m.weak) weak++;
+        var note = m.role === 'No access' ? 'Switched off' : m.role + (m.weak ? ', short code' : '');
+        return '<div class="row-between" style="padding:8px 0;border-bottom:1px solid var(--edge)"><div><b>' + esc(m.name || 'No name') + '</b><div class="muted" style="font-size:13px' + (m.weak ? ';color:var(--sun)' : '') + '">' + esc(note) + '</div></div>' +
+          '<button class="btn btn-ghost btn-small" style="width:auto;min-height:40px;padding:8px 14px" data-row="' + m.row + '" data-name="' + esc(m.name) + '">New code</button></div>';
+      }).join('');
+      $('fixWeakBtn').classList.toggle('hidden', !weak);
+      Array.prototype.forEach.call($('staffList').querySelectorAll('button[data-row]'), function (b) {
+        b.onclick = function () {
+          if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Tap again to confirm'; setTimeout(function () { b.dataset.sure = ''; b.textContent = 'New code'; }, 4000); return; }
+          newCodes('newCode', { row: b.dataset.row, name: b.dataset.name });
+        };
+      });
+    }).catch(function () {});
+  }
+  function newCodes(action, params) {
+    $('staffMsg').textContent = 'Making new codes…';
+    api(action, params).then(function (r) {
+      if (!r.ok) { $('staffMsg').textContent = r.error || 'That did not work. Try again.'; return; }
+      $('staffMsg').textContent = '';
+      r.codes.forEach(function (c) { if (c.self) { cfg.key = c.code; store.set('ev_key', c.code); $('key').value = c.code; } });
+      $('newCodes').innerHTML = '<p class="muted" style="margin:6px 0">Send each person their new code privately. It is shown only now.</p>' + r.codes.map(function (c) {
+        return '<div class="row-between" style="padding:8px 0"><div><b>' + esc(c.name) + (c.self ? ' (you, this phone is updated)' : '') + '</b><div style="font-size:17px;letter-spacing:.5px;user-select:all">' + esc(c.code) + '</div></div>' +
+          '<button class="btn btn-ghost btn-small" style="width:auto;min-height:40px;padding:8px 14px" data-copy="' + esc(c.code) + '">Copy</button></div>';
+      }).join('');
+      Array.prototype.forEach.call($('newCodes').querySelectorAll('button[data-copy]'), function (b) {
+        b.onclick = function () { (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.copy) : Promise.reject()).then(function () { b.textContent = 'Copied'; }).catch(function () {}); };
+      });
+      $('weakNote').classList.add('hidden');
+      loadStaff();
+    }).catch(function () { $('staffMsg').textContent = 'No connection. Try again.'; });
+  }
+  $('fixWeakBtn').onclick = function () { newCodes('fixWeak', {}); };
 
   /* ---------- unlock ---------- */
   $('saveBtn').onclick = function () {
@@ -717,7 +775,7 @@
     api('ping', { base: BASE }).then(function (r) {
       if (!r.ok) { $('setMsg').textContent = 'That key is not right. Check it and try again.'; return; }
       store.set('ev_key', key); store.set('ev_me', r.name || ''); cfg.me = r.name || ''; setRole(r.role);
-      $('setMsg').textContent = 'Signed in as ' + cfg.me; sayHello(); weakNote(r);
+      $('setMsg').textContent = 'Signed in as ' + cfg.me; sayHello(); weakNote(r); loadStaff();
       history = []; go('vEvents', false);
     }).catch(function () { $('setMsg').textContent = 'No connection. Check your internet and try again.'; });
   };
@@ -1443,7 +1501,7 @@
   function weakNote(r) {
     var w = (r && r.weak) || [];
     $('weakNote').classList.toggle('hidden', !w.length);
-    if (w.length) $('weakNote').textContent = 'Security: ' + w.join(', ') + (w.length > 1 ? ' have' : ' has') + ' a short staff code that could be guessed. In the Staff tab, change it to 12 or more random letters and numbers.';
+    if (w.length) $('weakNote').textContent = 'Security: ' + w.join(', ') + (w.length > 1 ? ' have' : ' has') + ' a short staff code that could be guessed. Tap the gear, then Give strong codes.';
   }
   function sayHello() {
     var hour = new Date().getHours();
