@@ -325,6 +325,7 @@
       // Told "fully booked" for this event before: it stays that way on this phone, even after a refresh.
       if (store.get(FB)) { $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
       show(ev.open ? 'vForm' : 'vClosed');
+      if (ev.open) setTimeout(function () { loadFace().catch(function () {}); }, 800);
     }).catch(function () {
       $('invalidMsg').textContent = 'No internet connection. Connect and reload this page.';
       show('vInvalid');
@@ -365,32 +366,73 @@
     var m = s / n; return { mean: m, sd: Math.sqrt(Math.max(0, s2 / n - m * m)) };
   }
   // '' = fine, 'dark' / 'blank' / 'noface' = strike, 'small' = retake without a strike, 'skip' = detector couldn't load.
+  // To avoid flagging a real face, it tries several ways (close crop, whole photo with a margin, then a stronger detector) before saying "no face".
+  function sq(img, mode) {
+    var sz = 416, c = document.createElement('canvas'); c.width = sz; c.height = sz;
+    var x = c.getContext('2d');
+    if (mode === 'crop') {
+      var S = Math.min(img.width, img.height);
+      x.drawImage(img, (img.width - S) / 2, Math.max(0, (img.height - S) / 2.5), S, S, 0, 0, sz, sz);
+    } else {
+      var k = sz * 0.8 / Math.max(img.width, img.height), w = img.width * k, h = img.height * k;
+      x.fillStyle = '#7f7f7f'; x.fillRect(0, 0, sz, sz); x.drawImage(img, (sz - w) / 2, (sz - h) / 2, w, h);
+    }
+    return c;
+  }
+  var ssdReady = null;
+  function loadSsd() {
+    if (!ssdReady) { ssdReady = faceapi.nets.ssdMobilenetv1.loadFromUri(FACE_MODEL); ssdReady.catch(function () { ssdReady = null; }); }
+    return ssdReady;
+  }
   function faceCheck(img) {
     var st = lightStats(img);
-    if (st.mean < 22) return Promise.resolve('dark');
-    if (st.sd < 6) return Promise.resolve('blank');
+    // Pitch black or one flat colour: no need to look for a face. A dim but real selfie still gets checked for a face.
+    if (st.mean < 7) return Promise.resolve('dark');
+    if (st.sd < 3) return Promise.resolve('blank');
+    var none = st.mean < 22 ? 'dark' : (st.sd < 6 ? 'blank' : 'noface');
+    var found = false;
+    function judge(dets, area) {
+      if (!dets || !dets.length) return false;
+      found = true;
+      return dets.some(function (d) { return d.box.width * d.box.height > area * 0.012; });
+    }
+    function tiny(c) { return faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.3 })); }
     return loadFace().then(function () {
-      var c = document.createElement('canvas'), S = Math.min(img.width, img.height), sz = 416; c.width = sz; c.height = sz;
-      c.getContext('2d').drawImage(img, (img.width - S) / 2, Math.max(0, (img.height - S) / 2.5), S, S, 0, 0, sz, sz);
-      return faceapi.detectAllFaces(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 416, scoreThreshold: 0.4 }));
-    }).then(function (dets) {
-      if (!dets.length) return 'noface';
-      return dets.some(function (d) { return d.box.width * d.box.height > 416 * 416 * 0.025; }) ? '' : 'small';
-    }, function () { return 'skip'; });
+      var a = sq(img, 'crop');
+      return tiny(a).then(function (d) {
+        if (judge(d, 416 * 416)) return '';
+        var b = sq(img, 'whole');
+        return tiny(b).then(function (d2) {
+          if (judge(d2, 416 * 416 * 0.64)) return '';
+          // Last try with the stronger (bigger, slower) detector, only for photos the quick one wasn't sure about.
+          return loadSsd().then(function () {
+            return faceapi.detectAllFaces(b, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }));
+          }).then(function (d3) {
+            if (judge(d3, 416 * 416 * 0.64)) return '';
+            return found ? 'small' : none;
+          }, function () { return found ? 'small' : 'skip'; });
+        });
+      });
+    }, function () { return 'skip'; }).catch(function () { return 'skip'; });
   }
   function photoReset(label) {
     PHOTO = ''; THUMB = ''; $('photo').value = '';
     $('phPrev').style.backgroundImage = ''; $('phPrev').classList.remove('on'); $('phLabel').textContent = label || 'Take a selfie';
   }
+  var checking = null;
   $('photo').onchange = function () {
     var f = this.files && this.files[0];
     if (!f) return;
+    var done, mine = new Promise(function (r) { done = r; }); checking = mine;
+    var finish = function () { if (checking === mine) checking = null; done(); };
     $('err').textContent = '';
     $('phLabel').textContent = 'Checking your photo…';
     var url = URL.createObjectURL(f), img = new Image();
     img.onload = function () {
       faceCheck(img).then(function (problem) {
         URL.revokeObjectURL(url);
+        if (checking !== mine) { done(); return; }   // they already picked a newer photo
+        setTimeout(finish, 0);
         if (problem === 'small') { photoReset('Retake photo'); $('err').textContent = 'Your face is too small or too far. Take a closer selfie so your face fills the circle.'; return; }
         if (problem === 'dark' || problem === 'blank' || problem === 'noface') {
           photoReset('Retake photo');
@@ -411,7 +453,7 @@
         } catch (e) { photoReset(); $('err').textContent = 'That photo didn\'t work. Try again.'; }
       });
     };
-    img.onerror = function () { $('phLabel').textContent = 'Take a selfie'; $('err').textContent = 'That photo didn\'t work. Try again with your camera.'; };
+    img.onerror = function () { finish(); $('phLabel').textContent = 'Take a selfie'; $('err').textContent = 'That photo didn\'t work. Try again with your camera.'; };
     img.src = url;
   };
   $('f').addEventListener('submit', function (e) {
@@ -443,8 +485,14 @@
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email address.'; return; }
-    if (!PHOTO) { err.textContent = 'Add a photo of your face (tap Take a selfie).'; return; }
     var btn = $('btn');
+    if (checking) {
+      // Still checking their selfie: wait, then carry on by itself if the photo was fine.
+      btn.disabled = true; btn.textContent = 'Checking your photo…';
+      checking.then(function () { btn.disabled = false; btn.textContent = 'Get my ticket'; if (PHOTO) btn.click(); });
+      return;
+    }
+    if (!PHOTO) { err.textContent = 'Add a photo of your face (tap Take a selfie).'; return; }
     btn.disabled = true; btn.textContent = 'Getting your ticket…';
     call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: PHOTO, thumb: THUMB, device: DEVICE }).then(function (res) {
       if (res && res.fullyBooked) { store.set(FB, '1'); $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
