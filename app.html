@@ -2,15 +2,18 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
+<script>/* Can't be shown inside another site's frame (stops click-jacking). */ if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { document.documentElement.style.display = 'none'; } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>LFIGP Bouncer</title>
-<meta name="theme-color" content="#120e2b">
+<meta name="theme-color" content="#000000">
 <meta name="apple-mobile-web-app-title" content="Bouncer">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script src="scanner.js"></script>
@@ -185,6 +188,12 @@
   .verdict.warn { background:var(--sun); color:#2b1b00; }
   .verdict.bad { background:var(--red); color:#2b0007; }
   .verdict.wait { background:var(--ink3); color:var(--text); }
+  .verdict.check { background:#dfe8ff; color:#10183a; }
+  .verdict.check .vphoto { width:240px; height:240px; border-color:#10183a; }
+  .confirm2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:6px; }
+  .confirm2 button { min-height:64px; font-size:19px; font-weight:800; border-radius:18px; border:0; cursor:pointer; }
+  #yesBtn { background:#12b886; color:#fff; }
+  #noBtn { background:#e03150; color:#fff; }
   .verdict .acts { display:flex; flex-direction:column; gap:8px; margin-top:12px; }
   .verdict .btn-dark { background:rgba(0,0,0,.82); color:#fff; }
   .verdict .btn-line { background:transparent; color:inherit; border:2px solid currentColor; }
@@ -209,6 +218,83 @@
   .unlock h2 { font-size:34px; }
   @media (prefers-reduced-motion: reduce) { * { animation:none !important; transition:none !important; } }
   body.scanner-only .admin-only { display: none !important; }
+
+  /* ---- Theme: black, white and grey. Colour is only used where it means something:
+     green = let in / paid, amber = check / collect payment, red = refuse. One typeface (Archivo); headings set wide. ---- */
+  :root {
+    --ink:#000000; --ink2:#0c0c0c; --ink3:#1a1a1a; --line:#272727;
+    --text:#ededed; --muted:#8f8f8f; --faint:#5c5c5c;
+    --pink:#f2f2f2; --pink2:#cfcfcf; --sun:#e0a43a; --mint:#3dbb7a; --red:#e5484d; --paper:#ffffff;
+    --display:"Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --body:"Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --mono:"Archivo", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  body { background:#000 !important; }
+
+  h2, .brand .word, .brand .crumb, .ticket .t-name, .meter .big b, .verdict .word, .empty b, .unlock h2, .gcard h3 { font-stretch:125%; font-weight:700; letter-spacing:-.01em; }
+  h2 { font-size:25px; line-height:1.15; }
+  .brand svg, .unlock svg { display:none; }
+  .brand .word { font-size:19px; }
+  .brand .word .tag { font-stretch:100%; font-size:12px; font-weight:500; letter-spacing:0; color:var(--muted); margin-bottom:3px; }
+  .icon-btn { border-radius:8px; background:transparent; }
+  .live i { animation:none; box-shadow:none; }
+  .eyebrow { font-size:13px; font-weight:500; letter-spacing:0; text-transform:none; color:var(--muted); }
+  .btn { border-radius:8px; font-weight:600; }
+  .btn-pink { background:#f2f2f2; color:#000; box-shadow:none; }
+  .btn-ghost { background:transparent; border:1px solid var(--line); }
+  .btn-small { border-radius:8px; }
+  input, select { border-radius:8px; background:#000; border-color:#2f2f2f; }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+  .panel, .meter, .guests, details.fold { background:transparent; border-color:var(--line); border-radius:10px; }
+  .pill { background:transparent !important; text-transform:none; letter-spacing:0; font-size:13px; font-weight:600; padding:0; }
+  .ticket { background:transparent; border-radius:10px; }
+  .ticket::before, .ticket::after { display:none; }
+  .ticket .t-name { font-size:19px; }
+  .ticket .stub { background:transparent; border-left:1px solid var(--line); }
+  .ticket .stub b { font-stretch:125%; font-weight:700; }
+  .ticket .stub span { text-transform:none; letter-spacing:0; font-size:12px; }
+  .bar { background:#1d1d1d; height:3px; border-radius:2px; }
+  .bar i { background:#f2f2f2; border-radius:2px; }
+  .meter .bar { height:4px; }
+  .meter .big b { font-size:44px; }
+  .mini { background:transparent; border:0; border-radius:0; padding:6px 0 2px; border-top:1px solid var(--line); }
+  .mini b { font-weight:700; }
+  .seg { border-radius:8px; background:transparent; }
+  .seg button { border-radius:6px; font-weight:600; }
+  .seg button.on { background:#1d1d1d; box-shadow:none; }
+  .chip { border-radius:8px; background:transparent; }
+  .chip.on { background:#f2f2f2; border-color:#f2f2f2; color:#000; }
+  .av { border-radius:6px; color:#e6e6e6; font-stretch:125%; }
+  .pay { border-radius:6px; letter-spacing:0; font-weight:600; }
+  .pay.yes { background:transparent; border:1px solid rgba(61,187,122,.45); }
+  .cam { border-radius:10px; }
+  .cam-idle .cam-ico { background:#f2f2f2; color:#000; box-shadow:none; }
+  .laser { background:rgba(255,255,255,.75); box-shadow:none; height:1px; }
+  .corners i { border-color:#fff; border-width:2px; }
+  .corners i:nth-child(n) { border-radius:0; }
+  .verdict { border-radius:10px; }
+  .verdict .word { font-size:38px; }
+  .verdict .meta { font-family:var(--body); }
+  .verdict.ok { color:#03140b; } .verdict.warn { color:#1f1300; } .verdict.bad { color:#1d0203; }
+  .verdict.wait { background:#141414; }
+  .verdict.check { background:#f2f2f2; color:#000; }
+  .verdict.check .vphoto { border-color:#000; }
+  .vphoto { border-radius:8px; border-width:2px; }
+  .confirm2 button { border-radius:8px; font-weight:700; }
+  #yesBtn { background:#1f9d5c; } #noBtn { background:#d1343b; }
+  .verdict .btn-line { border-width:1px; }
+  .lim { text-transform:none; letter-spacing:0; font-size:12px; font-weight:500; }
+  details.fold > summary { font-weight:600; }
+  .gmodal { background:rgba(0,0,0,.85); }
+  .gcard { background:#0c0c0c; border-color:var(--line); border-radius:12px 12px 0 0; }
+  .gcard img { border-radius:8px; }
+  .rmrow button { border-radius:8px; background:transparent; font-weight:600; }
+  .school { border-radius:8px; background:transparent; }
+  .manual input { text-transform:none; }
+  .manual button { border-radius:8px; }
+  .cam-msg, .offline-note { border-radius:8px; background:transparent; }
+  .del-confirm { border-radius:10px; background:transparent; }
+  .linkbox { border-radius:8px; }
 </style>
 </head>
 <body>
@@ -268,17 +354,18 @@
   <!-- EVENTS -->
   <section id="vEvents" class="hidden">
     <div class="row-between">
-      <div><div class="eyebrow" id="hello">Your events</div><h2 id="evHeadline">Who's on the list?</h2></div>
+      <div><div class="eyebrow" id="hello"></div><h2 id="evHeadline">Events</h2></div>
       <button class="btn btn-pink btn-small admin-only" id="newEvBtn"><svg><use href="#i-plus"/></svg>New</button>
     </div>
     <div id="evList"></div>
     <div class="msg" id="evMsg"></div>
+    <div class="msg hidden" id="weakNote" style="color:var(--sun);margin-top:6px"></div>
   </section>
 
   <!-- NEW EVENT -->
   <section id="vNew" class="hidden">
     <div class="eyebrow">New event</div>
-    <h2 style="margin-bottom:14px">What's the plan?</h2>
+    <h2 style="margin-bottom:14px">New event</h2>
     <div class="panel stack">
       <div class="field"><label for="nName">Event name</label><input id="nName" placeholder="Winter Formal" maxlength="80"></div>
       <div class="field"><label for="nDate">Date</label><input id="nDate" type="date"></div>
@@ -367,7 +454,7 @@
     <details class="fold admin-only" id="grpPanel" style="margin-bottom:18px">
       <summary><span>WhatsApp group</span><span class="sum" id="grpSum">Set up after sign-ups close</span></summary>
       <div class="fbody">
-      <div id="grpNudge" class="hidden" style="margin-bottom:10px;padding:10px 12px;border-radius:12px;background:rgba(37,211,102,.14);border:1px solid #25d366;font-weight:700">Sign-ups are closed. Now make the group and send everyone their link.</div>
+      <div id="grpNudge" class="hidden" style="margin-bottom:10px;padding:10px 12px;border-radius:8px;border:1px solid #3a3a3a;font-weight:600">Sign-ups are closed. Now make the group and send everyone their link.</div>
       <ol style="margin:0 0 10px 18px;padding:0;line-height:1.55;font-size:14px;color:var(--muted)">
         <li>In WhatsApp, create the group with <b>only Alexandre and William</b>, then make them admins.</li>
         <li>Group info → <b>Group settings</b>: turn ON <b>Approve new members</b>, and set <b>Add other members</b> to <b>Only admins</b>.</li>
@@ -380,7 +467,7 @@
         <input id="gLink" type="url" inputmode="url" placeholder="Paste here: https://chat.whatsapp.com/…">
         <button class="btn btn-small" id="gSave" type="button">Save</button>
       </div>
-      <button class="btn btn-pink" id="gSend" type="button" style="margin-top:10px;background:#25d366;color:#06240f">Send group link to everyone</button>
+      <button class="btn btn-pink" id="gSend" type="button" style="margin-top:10px">Send group link to everyone</button>
       <div class="msg" id="gMsg" style="margin-top:6px"></div>
       </div>
     </details>
@@ -418,12 +505,14 @@
       <button class="cam-idle" id="camIdle" type="button"><span class="cam-ico">&#9673;</span><span>Tap to turn on camera</span></button>
     </div>
     <div class="cam-msg hidden" id="camMsg" role="status"></div>
+    <div class="muted" id="ocrNote" style="font-size:13px;margin-top:8px;text-align:center">Point the camera at the 3 words (or a QR code).</div>
     <div id="verdict" class="verdict hidden" style="margin-top:12px">
       <img id="vPhoto" class="vphoto hidden" alt="Their sign-up photo">
       <div class="word" id="vWord"></div>
       <div class="who" id="vWho"></div>
       <div class="what" id="vWhat"></div>
       <div class="meta" id="vMeta"></div>
+      <div class="confirm2 hidden" id="confirm2"><button id="noBtn" type="button">Not them</button><button id="yesBtn" type="button">Let in</button></div>
       <div class="acts">
         <button class="btn btn-dark hidden" id="markPaidBtn">Mark as paid</button>
         <button class="btn btn-line" id="nextBtn">Scan next</button>
@@ -431,9 +520,9 @@
     </div>
     <div class="stack" style="margin-top:12px">
       <button class="btn btn-pink hidden" id="startBtn" style="display:none"><svg><use href="#i-cam"/></svg>Turn on camera</button>
-      <label class="btn btn-ghost photo-btn" for="photo"><svg><use href="#i-cam"/></svg>Snap a photo of the QR instead
+      <label class="btn btn-ghost photo-btn" for="photo"><svg><use href="#i-cam"/></svg>Snap a photo instead
         <input id="photo" type="file" accept="image/*" capture="environment"></label>
-      <div class="manual"><input id="manual" placeholder="T-XXXXXX" autocapitalize="characters" aria-label="Ticket ID"><button id="manualBtn">Check</button></div>
+      <div class="manual"><input id="manual" placeholder="3 words (first letters are enough)" autocapitalize="none" autocomplete="off" aria-label="Code words or ticket ID"><button id="manualBtn">Check</button></div>
     </div>
     <p class="muted" style="font-size:13px;text-align:center;margin:14px 0 0">Camera acting up? <a href="camtest.html" style="color:var(--pink2)">Open the camera check</a></p>
     <div id="fileReader" style="position:absolute;left:-9999px;width:300px;height:300px"></div>
@@ -457,6 +546,8 @@
     <img id="gmPhoto" alt="Sign-up photo">
     <h3 id="gmName"></h3>
     <dl id="gmInfo"></dl>
+    <button class="btn btn-pink hidden" id="gmLetIn" type="button" style="margin-bottom:6px">Let in without QR</button>
+    <div class="msg" id="gmInMsg" style="margin-bottom:10px"></div>
     <div class="admin-only">
       <div class="rmrow" id="gmRemove">
         <button type="button" class="danger" data-how="full">Remove: too full<br><small>emails them</small></button>
@@ -485,7 +576,7 @@
   var events = jget('bq_events', []), cur = null, guests = [], filter = 'all', view = '', history = [];
   var scanner = null, busy = false, lastScan = null, pending = 0, lastOk = 0;
   var LIVE_MS = 6000;
-  var AV = ['#ff7aa8', '#ffc24b', '#3ee6a8', '#8fb3ff', '#c9a2ff', '#ff9e6b'];
+  var AV = ['#262626', '#2d2d2d', '#333333', '#2a2a2a', '#303030', '#363636'];
 
   function api(action, params) {
     var p = { action: action, key: cfg.key };
@@ -553,10 +644,10 @@
     var key = $('key').value.trim();
     $('setMsg').textContent = 'Checking…';
     cfg = { url: BASE, key: key };
-    api('ping').then(function (r) {
+    api('ping', { base: BASE }).then(function (r) {
       if (!r.ok) { $('setMsg').textContent = 'That key is not right. Check it and try again.'; return; }
       store.set('ev_key', key); store.set('ev_me', r.name || ''); cfg.me = r.name || ''; setRole(r.role);
-      $('setMsg').textContent = 'Unlocked as ' + cfg.me; sayHello();
+      $('setMsg').textContent = 'Unlocked as ' + cfg.me; sayHello(); weakNote(r);
       history = []; go('vEvents', false);
     }).catch(function () { $('setMsg').textContent = 'No connection. Check your internet and try again.'; });
   };
@@ -568,6 +659,7 @@
     if (queue.length) { flush(); return; }
     if (view === 'vEvents') loadEvents();
     else if (view === 'vEvent' || view === 'vScan') loadGuests();
+    if (view === 'vScan' && cur && Date.now() - (photoAt[cur.id] || 0) > 60000) prefetchPhotos();
   }
   setInterval(function () { if (!document.hidden) refresh(); }, LIVE_MS);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
@@ -589,6 +681,7 @@
     return '<button class="ticket" data-id="' + esc(e.id) + '"><div class="main">' +
       '<span class="pill ' + esc(e.status) + '">' + esc(e.status) + '</span>' +
       '<div class="t-name">' + esc(e.name) + '</div><div class="t-sub">' + esc(sub) + '</div>' +
+      '<div class="t-sub" style="font-weight:700">' + s.signedUp + ' ' + (s.signedUp === 1 ? 'person' : 'people') + (s.boys || s.girls ? ' · ' + (s.boys || 0) + (s.boys === 1 ? ' boy · ' : ' boys · ') + (s.girls || 0) + (s.girls === 1 ? ' girl' : ' girls') : '') + (s.waiting ? ' · ' + s.waiting + ' waiting' : '') + '</div>' +
       (e.missing ? '<div class="t-sub" style="color:var(--red)">Guest tab was deleted from the sheet</div>' :
         '<div class="bar"><i style="width:' + pct(s.checkedIn, s.signedUp) + '%"></i></div>') +
       '</div><div class="stub"><b>' + s.checkedIn + '</b><span>of ' + s.signedUp + ' in</span></div></button>';
@@ -694,7 +787,7 @@
     if (!cur) return;
     if (!cur.groupLink) { $('gMsg').textContent = 'Paste the WhatsApp group link and tap Save first.'; return; }
     $('gSend').disabled = true; $('gMsg').textContent = 'Sending emails… this can take a minute.';
-    api('sendGroupLinks', { event: cur.id }).then(function (r) {
+    api('sendGroupLinks', { event: cur.id, base: BASE }).then(function (r) {
       $('gSend').disabled = false;
       if (!r.ok) { $('gMsg').textContent = r.error || 'Could not send.'; return; }
       var t = 'Sent ' + r.sent + ' new link' + (r.sent === 1 ? '' : 's') + '. Already had one: ' + r.already + '.';
@@ -723,14 +816,22 @@
       $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ' · Girls: ' + (g || 'no limit') + ' · Total: ' + (t || 'no limit') + ' · G11 LFIGP: ' + (gl || 'no limit') + ' · G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
+  var thumbAt = {};
   function loadGuests() {
     if (!cur) return;
     var id = cur.id;
+    // Speed: the little photos only come with the list once a minute (and when someone new signs up), not every refresh.
+    var want = !thumbAt[id] || Date.now() - thumbAt[id] > 60000;
     pending++;
-    api('guests', { event: id }).then(function (r) {
+    api('guests', { event: id, thumbs: want ? 1 : 0 }).then(function (r) {
       pending--;
       if (!cur || cur.id !== id) return;
       if (!r.ok) { $('gList').innerHTML = '<div class="empty">' + esc(r.error) + '</div>'; return; }
+      if (want) thumbAt[id] = Date.now();
+      else {
+        var old = {}; guests.forEach(function (g) { old[g.id] = g.thumb || ''; });
+        r.guests.forEach(function (g) { if (g.thumb === undefined) { if (!(g.id in old)) thumbAt[id] = 0; g.thumb = old[g.id] || ''; } });
+      }
       Object.assign(cur, r.event); guests = r.guests; jset('bq_g_' + id, guests); setStats(r.stats);
       if (view === 'vEvent') { renderEventHeader(); renderGuests(); renderSchools(); }
     }).catch(function () { pending--; });
@@ -745,13 +846,14 @@
       if (filter === 'unpaid') return !g.paid;
       return true;
     }).sort(function (a, b) { return a.name.localeCompare(b.name); });
-    $('gCount').textContent = guests.length ? (list.length + ' shown') : '';
+    var nb = guests.filter(function (g) { return !g.removed && g.gender === 'Boy'; }).length, ng = guests.filter(function (g) { return !g.removed && g.gender === 'Girl'; }).length;
+    $('gCount').textContent = guests.length ? ((list.length === guests.length ? guests.length + ' people' : list.length + ' of ' + guests.length) + ' · ' + nb + (nb === 1 ? ' boy · ' : ' boys · ') + ng + (ng === 1 ? ' girl' : ' girls')) : '';
     if (!guests.length) { $('gList').innerHTML = '<div class="empty">' + (loading ? 'Loading guests…' : '<b>No one yet</b>Share the sign-up link to start filling the list.') + '</div>'; return; }
     $('gList').innerHTML = list.map(function (g) {
       return '<div class="guest" data-g="' + esc(g.id) + '">' + (g.thumb ? '<img class="av" alt="" src="' + esc(g.thumb) + '">' : '<div class="av" style="background:' + avColor(g.id) + '">' + esc(initials(g.name).toUpperCase()) + '</div>') +
-        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">⚠ Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">❔ Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ' · ' + esc(g.school) : '') + '</span>' +
-        (g.checkedIn ? '<span class="in">✓ In ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' · ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
-        '</div></div><button class="pay' + (g.paid ? ' yes' : '') + '" data-t="' + esc(g.id) + '">' + (g.paid ? 'PAID' : 'NOT PAID') + '</button></div>';
+        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ' · ' + esc(g.school) : '') + '</span>' +
+        (g.checkedIn ? '<span class="in">In at ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' · ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
+        '</div></div><button class="pay' + (g.paid ? ' yes' : '') + '" data-t="' + esc(g.id) + '">' + (g.paid ? 'Paid' : 'Not paid') + '</button></div>';
     }).join('') || '<div class="empty">No one matches that.</div>';
     Array.prototype.forEach.call($('gList').querySelectorAll('.pay'), function (b) {
       b.onclick = function (e) { e.stopPropagation(); togglePaid(b.getAttribute('data-t'), b); };
@@ -764,7 +866,7 @@
     var g = guests.find(function (x) { return x.id === ticket; });
     if (!g) return;
     var next = !g.paid;
-    g.paid = next; if (btn) { btn.classList.toggle('yes', next); btn.textContent = next ? 'PAID' : 'NOT PAID'; }
+    g.paid = next; if (btn) { btn.classList.toggle('yes', next); btn.textContent = next ? 'Paid' : 'Not paid'; }
     pending++;
     api('setPaid', { event: cur.id, ticket: ticket, paid: next ? '1' : '0' }).then(function (r) {
       pending--;
@@ -791,7 +893,19 @@
         .catch(function () { cur.status = prev; renderEventHeader(); });
     };
   });
-  $('scanBtn').onclick = function () { hideVerdict(); go('vScan'); };
+  $('scanBtn').onclick = function () { hideVerdict(); go('vScan'); prefetchPhotos(); setTimeout(function () { loadOcr().catch(function () {}); }, 400); };
+  // The scanner keeps every guest's big photo on the phone, so the face shows instantly at the door.
+  var bigPhotos = {}, photoLast = {}, photoAt = {};
+  function bp(id) { return cur ? bigPhotos[cur.id + ':' + id] : ''; }
+  function prefetchPhotos() {
+    if (!cur || Date.now() - (photoAt[cur.id] || 0) < 5000) return;
+    var id = cur.id; photoAt[id] = Date.now();
+    api('photos', { event: id, from: photoLast[id] || 0 }).then(function (r) {
+      if (!r || !r.ok) return;
+      for (var k in r.photos) bigPhotos[id + ':' + k] = r.photos[k];
+      photoLast[id] = r.last;
+    }).catch(function () {});
+  }
   $('delBtn').onclick = function () { $('delConfirm').classList.remove('hidden'); $('delBtn').classList.add('hidden'); $('delMsg').textContent = ''; };
   $('delNo').onclick = function () { $('delConfirm').classList.add('hidden'); $('delBtn').classList.remove('hidden'); };
   $('delYes').onclick = function () {
@@ -884,14 +998,142 @@
     if (busy) return;
     busy = true;
     pauseScanner();
-    lookup(String(text).trim());
+    preview(String(text).trim());
   }
+  // Step 1: show who the ticket belongs to (photo, name, grade, school, paid). Nothing is marked yet.
+  var pendingCode = '', pendingGuest = null;
+  // ---- Code words: 3 everyday words instead of a QR. Same 2048-word list as the server. ----
+  var CW = 'abandon ability able about above absent absorb abstract absurd abuse access accident account accuse achieve acid acoustic acquire across act action actor actress actual adapt add addict address adjust admit adult advance advice aerobic affair afford afraid again age agent agree ahead aim air airport aisle alarm album alcohol alert alien all alley allow almost alone alpha already also alter always amateur amazing among amount amused analyst anchor ancient anger angle angry animal ankle announce annual another answer antenna antique anxiety any apart apology appear apple approve april arch arctic area arena argue arm armed armor army around arrange arrest arrive arrow art artefact artist artwork ask aspect assault asset assist assume asthma athlete atom attack attend attitude attract auction audit august aunt author auto autumn average avocado avoid awake aware away awesome awful awkward axis baby bachelor bacon badge bag balance balcony ball bamboo banana banner bar barely bargain barrel base basic basket battle beach bean beauty because become beef before begin behave behind believe below belt bench benefit best betray better between beyond bicycle bid bike bind biology bird birth bitter black blade blame blanket blast bleak bless blind blood blossom blouse blue blur blush board boat body boil bomb bone bonus book boost border boring borrow boss bottom bounce box boy bracket brain brand brass brave bread breeze brick bridge brief bright bring brisk broccoli broken bronze broom brother brown brush bubble buddy budget buffalo build bulb bulk bullet bundle bunker burden burger burst bus business busy butter buyer buzz cabbage cabin cable cactus cage cake call calm camera camp can canal cancel candy cannon canoe canvas canyon capable capital captain car carbon card cargo carpet carry cart case cash casino castle casual cat catalog catch category cattle caught cause caution cave ceiling celery cement census century cereal certain chair chalk champion change chaos chapter charge chase chat cheap check cheese chef cherry chest chicken chief child chimney choice choose chronic chuckle chunk churn cigar cinnamon circle citizen city civil claim clap clarify claw clay clean clerk clever click client cliff climb clinic clip clock clog close cloth cloud clown club clump cluster clutch coach coast coconut code coffee coil coin collect color column combine come comfort comic common company concert conduct confirm congress connect consider control convince cook cool copper copy coral core corn correct cost cotton couch country couple course cousin cover coyote crack cradle craft cram crane crash crater crawl crazy cream credit creek crew cricket crime crisp critic crop cross crouch crowd crucial cruel cruise crumble crunch crush cry crystal cube culture cup cupboard curious current curtain curve cushion custom cute cycle dad damage damp dance danger daring dash daughter dawn day deal debate debris decade december decide decline decorate decrease deer defense define defy degree delay deliver demand demise denial dentist deny depart depend deposit depth deputy derive describe desert design desk despair destroy detail detect develop device devote diagram dial diamond diary dice diesel diet differ digital dignity dilemma dinner dinosaur direct dirt disagree discover disease dish dismiss disorder display distance divert divide divorce dizzy doctor document dog doll dolphin domain donate donkey donor door dose double dove draft dragon drama drastic draw dream dress drift drill drink drip drive drop drum dry duck dumb dune during dust dutch duty dwarf dynamic eager eagle early earn earth easily east easy echo ecology economy edge edit educate effort egg eight either elbow elder electric elegant element elephant elevator elite else embark embody embrace emerge emotion employ empower empty enable enact end endless endorse enemy energy enforce engage engine enhance enjoy enlist enough enrich enroll ensure enter entire entry envelope episode equal equip era erase erode erosion error erupt escape essay essence estate eternal ethics evidence evil evoke evolve exact example excess exchange excite exclude excuse execute exercise exhaust exhibit exile exist exit exotic expand expect expire explain expose express extend extra eye eyebrow fabric face faculty fade faint faith fall false fame family famous fan fancy fantasy farm fashion fat fatal father fatigue fault favorite feature february federal fee feed feel female fence festival fetch fever few fiber fiction field figure file film filter final find fine finger finish fire firm first fiscal fish fit fitness fix flag flame flash flat flavor flee flight flip float flock floor flower fluid flush fly foam focus fog foil fold follow food foot force forest forget fork fortune forum forward fossil foster found fox fragile frame frequent fresh friend fringe frog front frost frown frozen fruit fuel fun funny furnace fury future gadget gain galaxy gallery game gap garage garbage garden garlic garment gas gasp gate gather gauge gaze general genius genre gentle genuine gesture ghost giant gift giggle ginger giraffe girl give glad glance glare glass glide glimpse globe gloom glory glove glow glue goat goddess gold good goose gorilla gospel gossip govern gown grab grace grain grant grape grass gravity great green grid grief grit grocery group grow grunt guard guess guide guilt guitar gun gym habit hair half hammer hamster hand happy harbor hard harsh harvest hat have hawk hazard head health heart heavy hedgehog height hello helmet help hen hero hidden high hill hint hip hire history hobby hockey hold hole holiday hollow home honey hood hope horn horror horse hospital host hotel hour hover hub huge human humble humor hundred hungry hunt hurdle hurry hurt husband hybrid ice icon idea identify idle ignore ill illegal illness image imitate immense immune impact impose improve impulse inch include income increase index indicate indoor industry infant inflict inform inhale inherit initial inject injury inmate inner innocent input inquiry insane insect inside inspire install intact interest into invest invite involve iron island isolate issue item ivory jacket jaguar jar jazz jealous jeans jelly jewel job join joke journey joy judge juice jump jungle junior junk just kangaroo keen keep ketchup key kick kid kidney kind kingdom kiss kit kitchen kite kitten kiwi knee knife knock know lab label labor ladder lady lake lamp language laptop large later latin laugh laundry lava law lawn lawsuit layer lazy leader leaf learn leave lecture left leg legal legend leisure lemon lend length lens leopard lesson letter level liar liberty library license life lift light like limb limit link lion liquid list little live lizard load loan lobster local lock logic lonely long loop lottery loud lounge love loyal lucky luggage lumber lunar lunch luxury lyrics machine mad magic magnet maid mail main major make mammal man manage mandate mango mansion manual maple marble march margin marine market marriage mask mass master match material math matrix matter maximum maze meadow mean measure meat mechanic medal media melody melt member memory mention menu mercy merge merit merry mesh message metal method middle midnight milk million mimic mind minimum minor minute miracle mirror misery miss mistake mix mixed mixture mobile model modify mom moment monitor monkey monster month moon moral more morning mosquito mother motion motor mountain mouse move movie much muffin mule multiply muscle museum mushroom music must mutual myself mystery myth naive name napkin narrow nasty nation nature near neck need negative neglect neither nephew nerve nest net network neutral never news next nice night noble noise nominee noodle normal north nose notable note nothing notice novel now nuclear number nurse nut oak obey object oblige obscure observe obtain obvious occur ocean october odor off offer office often oil okay old olive olympic omit once one onion online only open opera opinion oppose option orange orbit orchard order ordinary organ orient original orphan ostrich other outdoor outer output outside oval oven over own owner oxygen oyster ozone pact paddle page pair palace palm panda panel panic panther paper parade parent park parrot party pass patch path patient patrol pattern pause pave payment peace peanut pear peasant pelican pen penalty pencil people pepper perfect permit person pet phone photo phrase physical piano picnic picture piece pig pigeon pill pilot pink pioneer pipe pistol pitch pizza place planet plastic plate play please pledge pluck plug plunge poem poet point polar pole police pond pony pool popular portion position possible post potato pottery poverty powder power practice praise predict prefer prepare present pretty prevent price pride primary print priority prison private prize problem process produce profit program project promote proof property prosper protect proud provide public pudding pull pulp pulse pumpkin punch pupil puppy purchase purity purpose purse push put puzzle pyramid quality quantum quarter question quick quit quiz quote rabbit raccoon race rack radar radio rail rain raise rally ramp ranch random range rapid rare rate rather raven raw razor ready real reason rebel rebuild recall receive recipe record recycle reduce reflect reform refuse region regret regular reject relax release relief rely remain remember remind remove render renew rent reopen repair repeat replace report require rescue resemble resist resource response result retire retreat return reunion reveal review reward rhythm rib ribbon rice rich ride ridge rifle right rigid ring riot ripple risk ritual rival river road roast robot robust rocket romance roof rookie room rose rotate rough round route royal rubber rude rug rule run runway rural sad saddle sadness safe sail salad salmon salon salt salute same sample sand satisfy satoshi sauce sausage save say scale scan scare scatter scene scheme school science scissors scorpion scout scrap screen script scrub sea search season seat second secret section security seed seek segment select sell seminar senior sense sentence series service session settle setup seven shadow shaft shallow share shed shell sheriff shield shift shine ship shiver shock shoe shoot shop short shoulder shove shrimp shrug shuffle shy sibling sick side siege sight sign silent silk silly silver similar simple since sing siren sister situate six size skate sketch ski skill skin skirt skull slab slam sleep slender slice slide slight slim slogan slot slow slush small smart smile smoke smooth snack snake snap sniff snow soap soccer social sock soda soft solar soldier solid solution solve someone song soon sorry sort soul sound soup source south space spare spatial spawn speak special speed spell spend sphere spice spider spike spin spirit split spoil sponsor spoon sport spot spray spread spring spy square squeeze squirrel stable stadium staff stage stairs stamp stand start state stay steak steel stem step stereo stick still sting stock stomach stone stool story stove strategy street strike strong struggle student stuff stumble style subject submit subway success such sudden suffer sugar suggest suit summer sun sunny sunset super supply supreme sure surface surge surprise surround survey suspect sustain swallow swamp swap swarm swear sweet swift swim swing switch sword symbol symptom syrup system table tackle tag tail talent talk tank tape target task taste tattoo taxi teach team tell ten tenant tennis tent term test text thank that theme then theory there they thing this thought three thrive throw thumb thunder ticket tide tiger tilt timber time tiny tip tired tissue title toast tobacco today toddler toe together toilet token tomato tomorrow tone tongue tonight tool tooth top topic topple torch tornado tortoise toss total tourist toward tower town toy track trade traffic tragic train transfer trap trash travel tray treat tree trend trial tribe trick trigger trim trip trophy trouble truck true truly trumpet trust truth try tube tuition tumble tuna tunnel turkey turn turtle twelve twenty twice twin twist two type typical ugly umbrella unable unaware uncle uncover under undo unfair unfold unhappy uniform unique unit universe unknown unlock until unusual unveil update upgrade uphold upon upper upset urban urge usage use used useful useless usual utility vacant vacuum vague valid valley valve van vanish vapor various vast vault vehicle velvet vendor venture venue verb verify version very vessel veteran viable vibrant vicious victory video view village vintage violin virtual virus visa visit visual vital vivid vocal voice void volcano volume vote voyage wage wagon wait walk wall walnut want warfare warm warrior wash wasp waste water wave way wealth weapon wear weasel weather web wedding weekend weird welcome west wet whale what wheat wheel when where whip whisper wide width wife wild will win window wine wing wink winner winter wire wisdom wise wish witness wolf woman wonder wood wool word work world worry worth wrap wreck wrestle wrist write wrong yard year yellow you young youth zebra zero zone zoo'.split(' '), CWSET = {};
+  CW.forEach(function (w) { CWSET[w] = 1; });
+  // Exact words, or just their first letters ("vel ott mor"), in order.
+  function guestByWords(text) {
+    var toks = String(text || '').toLowerCase().replace(/[^a-z ]/g, ' ').trim().split(/\s+/);
+    if (toks.length !== 3 || !toks[0]) return null;
+    var exact = toks.join(' '), hits = [];
+    for (var i = 0; i < guests.length; i++) { if (guests[i].words === exact) return guests[i]; }
+    guests.forEach(function (g) { var ws = String(g.words || '').split(' '); if (ws.length === 3 && toks.every(function (t, k) { return ws[k].indexOf(t) === 0; })) hits.push(g); });
+    return hits.length === 1 ? hits[0] : null;
+  }
+  // Text read by the camera: fix small reading mistakes, then find the guest whose 3 words are all there.
+  function lev(a, b) {
+    var m = a.length, n = b.length, d = [], i, j; if (Math.abs(m - n) > 2) return 9;
+    for (i = 0; i <= m; i++) { d[i] = [i]; } for (j = 0; j <= n; j++) d[0][j] = j;
+    for (i = 1; i <= m; i++) for (j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[m][n];
+  }
+  function toWord(t) {
+    if (CWSET[t]) return t;
+    if (t.length < 3) return '';
+    var best = '', bd = 9, tie = false;
+    for (var i = 0; i < CW.length; i++) { var d = lev(t, CW[i]); if (d < bd) { bd = d; best = CW[i]; tie = false; } else if (d === bd) tie = true; }
+    return bd <= (t.length <= 4 ? 1 : 2) && !tie ? best : '';
+  }
+  function readWords(text) { return (String(text || '').toLowerCase().match(/[a-z]{3,}/g) || []).map(toWord).filter(Boolean); }
+  function guestFromText(text) {
+    var found = readWords(text), set = {};
+    found.forEach(function (w) { set[w] = 1; });
+    var hits = guests.filter(function (g) { var ws = String(g.words || '').split(' '); return ws.length === 3 && ws.every(function (w) { return set[w]; }); });
+    if (hits.length === 1) return { guest: hits[0] };
+    for (var i = 0; i + 2 < found.length; i++) return { words: found.slice(i, i + 3).join(' ') };   // not in the saved list yet: ask the sheet
+    return null;
+  }
+  // The text reader (Tesseract, free and open source) loads once, the first time the scanner opens.
+  var ocr = { loading: null, worker: null, busy: false, lastAsk: '' };
+  var OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
+  function loadOcr() {
+    if (ocr.loading) return ocr.loading;
+    $('ocrNote').textContent = 'Getting the word reader ready…';
+    ocr.loading = new Promise(function (ok, bad) {
+      if (window.Tesseract) return ok();
+      var sc = document.createElement('script'); sc.src = OCR_JS; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc);
+    }).then(function () {
+      return Tesseract.createWorker('eng', 1, {
+        workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/worker.min.js',
+        corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5.1.1',
+        langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int'
+      });
+    }).then(function (w) {
+      return w.setParameters({ tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ', tessedit_pageseg_mode: '11' }).then(function () {
+        ocr.worker = w; $('ocrNote').textContent = 'Point the camera at the 3 words (or a QR code).'; return w;
+      });
+    });
+    ocr.loading.catch(function () { ocr.loading = null; $('ocrNote').textContent = 'The word reader couldn\'t load (no internet?). Type the words below instead.'; });
+    return ocr.loading;
+  }
+  function frameCanvas(src, w, h) {
+    var S = Math.min(w, h), k = Math.min(1, 1000 / S), c = document.createElement('canvas');
+    c.width = Math.round(S * k); c.height = Math.round(S * k);
+    var x = c.getContext('2d'); x.filter = 'grayscale(1) contrast(1.3)';
+    x.drawImage(src, (w - S) / 2, (h - S) / 2, S, S, 0, 0, c.width, c.height);
+    return c;
+  }
+  function useReadText(text) {
+    var hit = guestFromText(text);
+    if (!hit || busy) return false;
+    busy = true; pauseScanner();
+    if (hit.guest) preview('W:' + hit.guest.words);
+    else { if (hit.words === ocr.lastAsk) { busy = false; resumeScanner(); return false; } ocr.lastAsk = hit.words; preview('W:' + hit.words); }
+    return true;
+  }
+  // Reads the camera picture every moment while scanning, like the QR scanner does.
+  setInterval(function () {
+    if (ocr.busy || busy || view !== 'vScan' || !$('camBox').classList.contains('live')) return;
+    var v = $('camVideo'); if (!v || !v.videoWidth) return;
+    ocr.busy = true;
+    loadOcr().then(function (w) { return w.recognize(frameCanvas(v, v.videoWidth, v.videoHeight)); })
+      .then(function (res) { ocr.busy = false; useReadText(res.data.text); })
+      .catch(function () { ocr.busy = false; });
+  }, 600);
+  function preview(code) {
+    busy = true; lastScan = null; scanPhoto = ''; pendingCode = code; pendingGuest = null; showConfirm(false);
+    var gw = /^(W:)?[a-z]+ [a-z]+ [a-z]+$/i.test(String(code).trim()) ? guestByWords(String(code).replace(/^W:/i, '')) : null;
+    if (gw) code = pendingCode = 'W:' + gw.words;
+    var c = code.toUpperCase(), evId = '', t = c;
+    if (c.indexOf('|') > 0) { evId = c.split('|')[0]; t = c.split('|')[1]; }
+    var g = gw || ((!evId || evId === cur.id.toUpperCase()) ? guests.find(function (x) { return x.id.toUpperCase() === t; }) : null);
+    if (g && !g.removed && !g.suspicious && !g.checkedIn && [11, 12].indexOf(Number(g.grade)) >= 0) return askConfirm(code, g);
+    if (g || evId && evId !== cur.id.toUpperCase()) return lookup(code);      // something's wrong: the sheet decides and logs it
+    // Not in the saved list yet (just signed up?): ask the sheet without letting them in.
+    verdict('wait', 'Checking…', '', '', '', null);
+    api('scan', { event: cur.id, code: code, peek: 1 }).then(function (r) {
+      if (pendingCode !== code) return;
+      if (r && r.ok && r.found && r.eligible && !r.alreadyCheckedIn) {
+        if (r.photo) bigPhotos[cur.id + ':' + r.id] = r.photo;
+        return askConfirm(code, { id: r.id, name: r.name, grade: r.grade, school: r.school, paid: r.paid, check: r.check, thumb: '' });
+      }
+      lookup(code);
+    }).catch(function () { setLive(false); offlineScan(code); });
+  }
+  function showConfirm(on) { $('confirm2').classList.toggle('hidden', !on); if (on) $('nextBtn').classList.add('hidden'); }
+  function askConfirm(code, g) {
+    pendingCode = code; pendingGuest = g; lastScan = null;
+    scanPhoto = bp(g.id) || g.thumb || '';
+    var what = 'Grade ' + g.grade + (g.school ? ' · ' + g.school : '') + ' · ' + (g.paid ? 'Paid' : 'Not paid');
+    buzz(60);
+    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : 'No sign-up photo: check their ID', null);
+    showConfirm(true);
+    if (!bp(g.id)) api('guestPhoto', { event: cur.id, ticket: g.id }).then(function (r) {
+      if (!r || !r.photo) return;
+      bigPhotos[cur.id + ':' + g.id] = r.photo;
+      if (pendingGuest === g && $('verdict').classList.contains('check')) { $('vPhoto').src = r.photo; $('vPhoto').classList.remove('hidden'); $('vMeta').textContent = 'Compare the photo with their face'; }
+    }).catch(function () {});
+  }
+  // Step 2: Yes = let in (ticket used). Not them = refused, ticket stays unused, logged.
+  $('yesBtn').onclick = function () { if (!pendingGuest) return; showConfirm(false); lookup(pendingCode, true); };
+  $('noBtn').onclick = function () {
+    if (!pendingGuest) return;
+    var g = pendingGuest; showConfirm(false); pendingGuest = null; buzz([400, 120, 400]);
+    verdict('bad', 'Not them', g.name, "Don't let this person in. The ticket was NOT used.", 'Saved in the scan log', null);
+    api('scan', { event: cur.id, code: pendingCode, refuse: 1 }).catch(function () {});
+  };
   function localStats() {
     setStats({ signedUp: guests.length, checkedIn: guests.filter(function (g) { return g.checkedIn; }).length, paid: guests.filter(function (g) { return g.paid; }).length });
   }
   function offlineScan(code) {
     var c = String(code).trim().toUpperCase(), evId = '', t = c;
     if (c.indexOf('|') > 0) { evId = c.split('|')[0]; t = c.split('|')[1]; }
+    var gw0 = guestByWords(String(code).replace(/^W:/i, ''));
+    if (gw0) { evId = cur.id.toUpperCase(); t = gw0.id.toUpperCase(); c = evId + '|' + t; }
     enqueue('scan', { event: cur.id, code: c });
     if (evId && evId !== cur.id.toUpperCase()) { buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', 'Saved offline', '', null); }
     var g = guests.find(function (x) { return x.id.toUpperCase() === t; });
@@ -910,17 +1152,18 @@
     else verdict('warn', 'Collect payment', who, what, 'Saved offline · syncs when back online', false);
   }
   var scanPhoto = '';
-  function lookup(code) {
+  var autoNext = null;
+  function lookup(code, confirmed) {
     busy = true; lastScan = null; scanPhoto = '';
-    verdict('wait', 'Checking…', '', '', '', null);
-    api('scan', { event: cur.id, code: code }).then(function (r) {
+    verdict('wait', confirmed ? 'Letting in…' : 'Checking…', '', '', '', null);
+    api('scan', { event: cur.id, code: code, nophoto: 1 }).then(function (r) {
       setStats(r.stats);
       if (!r.ok) return verdict('bad', 'Hmm.', 'Something went wrong', r.error || '', '', null);
       if (r.wrongEvent) { buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', r.wrongEvent, '', null); }
       if (!r.found) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'This ticket is not in this event', '', '', null); }
       lastScan = r;
       var g = guests.find(function (x) { return x.id === r.id; });
-      scanPhoto = r.photo || (g && g.thumb) || '';
+      scanPhoto = r.photo || bp(r.id) || (g && g.thumb) || '';
       if (g && r.eligible && !r.alreadyCheckedIn) { g.checkedIn = true; g.time = r.time; g.by = r.by; }
       if (g && r.suspicious) g.suspicious = true;
       var who = r.name, what = 'Grade ' + r.grade + (r.school ? ' · ' + r.school : '') + ' · ' + (r.paid ? 'Paid' : 'Not paid');
@@ -930,7 +1173,11 @@
       if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + r.time + (r.by ? ' · scanned by ' + r.by : ''), null); }
       buzz(150);
       if (r.check) { buzz([200, 100, 200]); return verdict('warn', 'Check ID first', who, what + ' · ' + r.check, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, r.paid ? true : false); }
-      if (r.paid) verdict('ok', 'Let them in', who, what, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, true);
+      if (r.paid) {
+        verdict('ok', 'Let them in', who, what, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, true);
+        // All good: straight back to scanning for the next person.
+        clearTimeout(autoNext); autoNext = setTimeout(function () { if ($('verdict').classList.contains('ok')) $('nextBtn').onclick(); }, 1400);
+      }
       else verdict('warn', 'Collect payment', who, what, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, false);
     }).catch(function () { setLive(false); offlineScan(code); });
   }
@@ -944,6 +1191,21 @@
     $('camBox').classList.toggle('hidden', kind !== 'wait' && false);
     el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
+  // No QR (dead phone, no internet): staff check the face against the photo, then let them in from here.
+  $('gmLetIn').onclick = function () {
+    var g = guests.find(function (x) { return x.id === gmCur; }), b = $('gmLetIn');
+    if (!g || !cur) return;
+    if (!b.classList.contains('armed')) { b.classList.add('armed'); b.textContent = 'Tap again: their face matches the photo'; return; }
+    b.disabled = true; $('gmInMsg').textContent = 'Letting in…';
+    api('scan', { event: cur.id, code: cur.id + '|' + g.id, nophoto: 1 }).then(function (r) {
+      b.disabled = false; b.classList.remove('armed'); b.textContent = 'Let in without QR';
+      if (!r.ok || !r.found) { $('gmInMsg').textContent = (r && r.error) || 'Not on the list.'; return; }
+      if (r.removed || r.suspicious || !r.eligible) { $('gmInMsg').textContent = 'Refused: ' + (r.removed ? 'taken off the list' : r.suspicious ? 'suspicious' : 'grade ' + r.grade) + '. Do not let in.'; return; }
+      if (r.alreadyCheckedIn) { $('gmInMsg').textContent = 'Already used at ' + r.time + (r.by ? ' by ' + r.by : '') + '. Do not let in again.'; return; }
+      g.checkedIn = true; g.time = r.time; g.by = r.by; jset('bq_g_' + cur.id, guests); setStats(r.stats); renderGuests();
+      b.classList.add('hidden'); $('gmInMsg').textContent = 'Let in' + (r.paid ? '.' : '. Not paid yet: collect payment.');
+    }).catch(function () { b.disabled = false; $('gmInMsg').textContent = 'No connection. Try again.'; });
+  };
   // Guest profile: big photo + everything they signed up with. Lets admins and scanners preview the list before the event.
   function openGuest(id) {
     var g = guests.find(function (x) { return x.id === id; });
@@ -953,10 +1215,11 @@
     var rows = [['Ticket', g.id], ['Grade', g.grade], ['School', g.school || '–'], ['Gender', g.gender || '–'], ['WhatsApp', g.phone || '–'],
       ['Email', g.email || '–'], ['Signed up', g.signedUp || '–'], ['Paid', g.paid ? 'Yes' : 'No'],
       ['Checked in', g.checkedIn ? ('Yes · ' + (g.time || '') + (g.by ? ' · ' + g.by : '')) : 'Not yet'],
-      ['Status', g.removed ? (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') : (g.suspicious ? '⚠ Suspicious' : (g.check ? '❔ Check ID' : 'OK'))]];
+      ['Status', g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : (g.suspicious ? 'Suspicious' : (g.check ? 'Check ID' : 'OK'))]];
     $('gmInfo').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
     $('gModal').classList.remove('hidden');
-    gmCur = id; $('gmMsg').textContent = '';
+    gmCur = id; $('gmMsg').textContent = ''; $('gmInMsg').textContent = '';
+    $('gmLetIn').classList.toggle('hidden', !!(g.checkedIn || g.removed)); $('gmLetIn').textContent = 'Let in without QR'; $('gmLetIn').disabled = false; $('gmLetIn').classList.remove('armed');
     Array.prototype.forEach.call($('gmRemove').querySelectorAll('button'), function (b) { b.classList.remove('armed'); b.disabled = false; });
     api('guestPhoto', { event: cur.id, ticket: id }).then(function (r) {
       if (r.ok && r.photo && !$('gModal').classList.contains('hidden')) { $('gmPhoto').src = r.photo; $('gmPhoto').style.visibility = 'visible'; }
@@ -990,7 +1253,7 @@
   });
   function openGuestInfo(id) {
     var g = guests.find(function (x) { return x.id === id; }); if (!g) return;
-    var dd = $('gmInfo').querySelectorAll('dd'); if (dd.length) dd[dd.length - 1].textContent = g.removed ? (g.removed === 'ban' ? '⛔ Banned' : g.removed === 'full' ? '✕ Cancelled (too full)' : '✕ Removed') : 'OK';
+    var dd = $('gmInfo').querySelectorAll('dd'); if (dd.length) dd[dd.length - 1].textContent = g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : 'OK';
   }
   // Schools: how many boys and girls signed up from each school (people removed don't count).
   function renderSchools() {
@@ -1008,7 +1271,7 @@
     }).join('') : '<div class="msg">No sign-ups yet.</div>';
   }
   $('gModal').onclick = function (e) { if (e.target === $('gModal')) $('gModal').classList.add('hidden'); };
-  function hideVerdict() { $('verdict').className = 'verdict hidden'; busy = false; }
+  function hideVerdict() { $('verdict').className = 'verdict hidden'; busy = false; clearTimeout(autoNext); pendingGuest = null; $('confirm2').classList.add('hidden'); }
   $('markPaidBtn').onclick = function () {
     if (!lastScan) return;
     var id = lastScan.id;
@@ -1074,8 +1337,10 @@
     pauseScanner();
     busy = true; lastScan = null;
     verdict('wait', 'Reading photo…', '', '', '', null);
-    decodePhoto(f).then(function (text) { busy = false; onCode(text); })
-      .catch(function () { verdict('bad', 'No QR found', 'Try again a little closer', 'Fill most of the photo with the QR code and keep it sharp and well lit.', '', null); });
+    decodePhoto(f).then(function (text) { busy = false; onCode(text); }, function () {
+      return loadOcr().then(function (w) { return w.recognize(f); }).then(function (res) { busy = false; if (!useReadText(res.data.text)) throw new Error('none'); });
+    })
+      .catch(function () { verdict('bad', 'No code found', 'Try again a little closer', 'Fill most of the photo with the 3 words (or the QR code), sharp and well lit. Or type the words below.', '', null); });
   };
   function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
   $('nextBtn').onclick = function () {
@@ -1089,7 +1354,7 @@
     if (!v) return;
     $('manual').value = '';
     pauseScanner(); busy = true;
-    lookup(v);
+    preview(v);
   };
   $('manual').onkeydown = function (e) { if (e.key === 'Enter') $('manualBtn').onclick(); };
 
@@ -1101,10 +1366,16 @@
     document.body.classList.toggle('scanner-only', role === 'scanner');
   }
   setRole(store.get('ev_role'));
+  // Security: staff codes shorter than 12 characters could be guessed. Admins see who should get a new one.
+  function weakNote(r) {
+    var w = (r && r.weak) || [];
+    $('weakNote').classList.toggle('hidden', !w.length);
+    if (w.length) $('weakNote').textContent = 'Security: ' + w.join(', ') + (w.length > 1 ? ' have' : ' has') + ' a short staff code that could be guessed. In the Staff tab, change it to 12 or more random letters and numbers.';
+  }
   function sayHello() {
     var hour = new Date().getHours();
-    $('hello').textContent = cfg.me ? 'Hey ' + cfg.me : 'Your events';
-    $('evHeadline').textContent = hour < 12 ? 'Morning, boss.' : hour < 18 ? 'Who\'s on the list?' : 'Doors open soon?';
+    $('hello').textContent = cfg.me ? 'Signed in as ' + cfg.me : '';
+    $('evHeadline').textContent = 'Events';
   }
   sayHello(); renderEvents(); paintLive();
   if ('serviceWorker' in navigator) {
@@ -1120,7 +1391,7 @@
       go2();
     });
   }
-  if (!cfg.key) go('vSettings', false); else { go('vEvents', false); api('ping').then(function (r) { if (r.ok) { cfg.me = r.name; store.set('ev_me', r.name); setRole(r.role); sayHello(); } }).catch(function () {}); }
+  if (!cfg.key) go('vSettings', false); else { go('vEvents', false); api('ping', { base: BASE }).then(function (r) { if (r.ok) { cfg.me = r.name; store.set('ev_me', r.name); setRole(r.role); sayHello(); weakNote(r); } }).catch(function () {}); }
 })();
 </script>
 </body>
