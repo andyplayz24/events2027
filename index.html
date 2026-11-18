@@ -359,10 +359,16 @@
   // Live ticket (link from their email): the QR only shows while unused. After the scan it turns black for good.
   var TKT = (new URLSearchParams(location.search).get('t') || '').trim().toUpperCase(), pollT = null;
   function renderTicket(r) {
+    r.words = '';   // tickets are QR codes
+    // The QR always stays on screen (no black-out); a used or cancelled code is simply refused at the door.
+    var note = r.state === 'used' ? 'Checked in' + (r.time ? ' at ' + r.time : '') + '. This QR code no longer works.' :
+      r.state === 'over' ? 'This event is over.' : r.state === 'cancelled' ? (r.msg || 'This ticket was cancelled.') : '';
+    if (r.state !== 'valid') { r.code = EVENT_ID.toUpperCase() + '|' + r.id; r.state = 'valid'; }
+    setTimeout(function () { if (note) { $('mailHint').textContent = note; $('tTag').textContent = note.split('.')[0]; $('saveBtn').classList.add('hidden'); } }, 0);
     fill('evName', r.event); document.querySelector('#vTicket .evMeta').textContent = r.date || ''; document.title = r.event;
     $('tName').textContent = r.name; $('tGrade').textContent = r.grade;
     ticket = r.state === 'valid' ? { name: r.name, grade: r.grade, id: r.id, code: r.code, words: r.words || '', event: r.event, date: r.date || '' } : null;
-    $('saveBtn').classList.toggle('hidden', !(r.state === 'valid' && r.words));
+    $('saveBtn').classList.toggle('hidden', r.state !== 'valid');
     if (r.state === 'valid' && r.words) {
       $('qr').className = ''; $('qr').innerHTML = ''; $('qr').setAttribute('data-code', r.code);
       $('tWords').textContent = r.words.split(' ').join('\n'); $('tWords').classList.remove('hidden');
@@ -376,7 +382,7 @@
         $('qr').setAttribute('data-code', r.code);
       }
       $('tId').textContent = r.id; $('tTag').textContent = 'You\'re on the list';
-      $('mailHint').textContent = 'Show this at the door. It works once and disappears after you\'re scanned in.';
+      $('mailHint').textContent = 'Show this QR code at the door. It works once and disappears after you\'re scanned in.';
     } else {
       $('qr').innerHTML = ''; $('qr').removeAttribute('data-code'); $('qr').className = 'qr-dead'; $('tId').textContent = '';
       $('tWords').textContent = ''; $('tWords').classList.add('hidden');
@@ -633,11 +639,11 @@
         return;
       }
       $('tName').textContent = res.name; $('tGrade').textContent = res.grade; $('tId').textContent = res.id;
-      ticket = { name: res.name, grade: res.grade, id: res.id, code: res.code, words: res.words || '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
-      $('mailHint').textContent = 'We also emailed you a link to this ticket. Show it at the door. It works once and disappears after you\'re scanned in.';
+      ticket = { name: res.name, grade: res.grade, id: res.id, code: res.code, words: '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
+      $('mailHint').textContent = 'We also emailed you this QR code. Show it at the door. It works once and disappears after you\'re scanned in.';
       $('tTag').textContent = 'You\'re on the list'; $('qr').className = '';
       $('qr').innerHTML = '';
-      $('saveBtn').classList.toggle('hidden', !res.words); $('saveBtn').textContent = 'Save to Photos';
+      res.words = ''; $('saveBtn').classList.remove('hidden'); $('saveBtn').textContent = 'Save to Photos';
       if (res.words) {
         $('tWords').textContent = res.words.split(' ').join('\n'); $('tWords').classList.remove('hidden'); $('tId').textContent = '';
         $('mailHint').textContent = 'We also emailed you these words. Show them at the door. They work once and disappear after you\'re scanned in.';

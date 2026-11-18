@@ -569,7 +569,7 @@
       <button class="cam-idle" id="camIdle" type="button"><span class="cam-ico">&#9673;</span><span>Tap to turn on camera</span></button>
     </div>
     <div class="cam-msg hidden" id="camMsg" role="status"></div>
-    <div class="muted" id="ocrNote" style="font-size:13px;margin-top:8px;text-align:center">Point the camera at the 3 words (or a QR code).</div>
+    <div class="muted" id="ocrNote" style="font-size:13px;margin-top:8px;text-align:center">Point the camera at the QR code.</div>
     <div id="verdict" class="verdict hidden" style="margin-top:12px">
       <img id="vPhoto" class="vphoto hidden" alt="Their sign-up photo">
       <div class="word" id="vWord"></div>
@@ -586,7 +586,7 @@
       <button class="btn btn-pink hidden" id="startBtn" style="display:none"><svg><use href="#i-cam"/></svg>Turn on camera</button>
       <label class="btn btn-ghost photo-btn" for="photo"><svg><use href="#i-cam"/></svg>Snap a photo instead
         <input id="photo" type="file" accept="image/*" capture="environment"></label>
-      <div class="manual"><input id="manual" placeholder="Type the 3 words" autocapitalize="none" autocomplete="off" aria-label="Code words or ticket ID"><button id="manualBtn">Check</button></div>
+      <div class="manual"><input id="manual" placeholder="T-XXXXXX" autocapitalize="none" autocomplete="off" aria-label="Code words or ticket ID"><button id="manualBtn">Check</button></div>
     </div>
     <p class="muted" style="font-size:13px;text-align:center;margin:14px 0 0">Camera acting up? <a href="camtest.html" style="color:var(--pink2)">Open the camera check</a></p>
     <div id="fileReader" style="position:absolute;left:-9999px;width:300px;height:300px"></div>
@@ -638,7 +638,7 @@
   function jset(k, v) { store.set(k, JSON.stringify(v)); }
   var queue = jget('bq_queue', []), flushing = false;
   var events = jget('bq_events', []), cur = null, guests = [], filter = 'all', view = '', history = [];
-  var scanner = null, busy = false, lastScan = null, pending = 0, lastOk = 0;
+  var scanner = null, busy = false, lastScan = null, pending = 0, pendingAt = 0, lastOk = 0;
   var LIVE_MS = 6000;
   var AV = ['#262626', '#2d2d2d', '#333333', '#2a2a2a', '#303030', '#363636'];
 
@@ -647,12 +647,12 @@
     for (var k in (params || {})) p[k] = String(params[k]);
     if (navigator.onLine === false) { setLive(false); return Promise.reject(new Error('offline')); }
     var ctrl = window.AbortController ? new AbortController() : null;
-    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+    var timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 45000);
     return fetch(API, { method: 'POST', body: JSON.stringify(p), headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         credentials: 'omit', redirect: 'follow', signal: ctrl ? ctrl.signal : undefined })
       .then(function (res) { return res.json(); })
       .then(function (r) { clearTimeout(timer); lastOk = Date.now(); setLive(true); return r; })
-      .catch(function (e) { clearTimeout(timer); setLive(false); throw e; });
+      .catch(function (e) { clearTimeout(timer); if (!(e && e.name === 'AbortError')) setLive(false); throw e; });
   }
   // "2026-12-12" -> "Sat 12 Dec" (with the year when it isn't this year).
   function fmtDay(d) {
@@ -725,7 +725,9 @@
 
   /* ---------- live refresh ---------- */
   function refresh() {
-    if (!cfg.key || pending) return;
+    if (!cfg.key) return;
+    if (pending > 0 && Date.now() - pendingAt < 45000) return;
+    pending = 0;
     if (queue.length) { flush(); return; }
     if (view === 'vEvents') loadEvents();
     else if (view === 'vEvent' || view === 'vScan') loadGuests();
@@ -733,17 +735,17 @@
   }
   setInterval(function () { if (!document.hidden) refresh(); }, LIVE_MS);
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
-  setInterval(function () { if (lastOk && Date.now() - lastOk > LIVE_MS * 3) setLive(false); }, 4000);
+  setInterval(function () { if (navigator.onLine === false) setLive(false); else if (!online && lastOk && Date.now() - lastOk < 15000) setLive(true); }, 4000);
 
   /* ---------- events ---------- */
   function loadEvents() {
     if (!events.length) $('evMsg').textContent = 'Loading your events…';
-    pending++;
+    pending++; pendingAt = Date.now();
     api('events').then(function (r) {
-      pending--;
+      pending = Math.max(0, pending - 1);
       if (!r.ok) { $('evMsg').textContent = r.error; return; }
       events = r.events; jset('bq_events', events); $('evMsg').textContent = ''; renderEvents();
-    }).catch(function () { pending--; $('evMsg').textContent = events.length ? 'Offline. Showing your saved events.' : 'No internet yet. Connect once to load your events.'; renderEvents(); });
+    }).catch(function () { pending = Math.max(0, pending - 1); $('evMsg').textContent = events.length ? 'Offline. Showing your saved events.' : 'No internet yet. Connect once to load your events.'; renderEvents(); });
   }
   function ticketCard(e) {
     var s = e.stats || { signedUp: 0, checkedIn: 0, paid: 0 };
@@ -892,9 +894,9 @@
     var id = cur.id;
     // Speed: the little photos only come with the list once a minute (and when someone new signs up), not every refresh.
     var want = !thumbAt[id] || Date.now() - thumbAt[id] > 60000;
-    pending++;
+    pending++; pendingAt = Date.now();
     api('guests', { event: id, thumbs: want ? 1 : 0 }).then(function (r) {
-      pending--;
+      pending = Math.max(0, pending - 1);
       if (!cur || cur.id !== id) return;
       if (!r.ok) { $('gList').innerHTML = '<div class="empty">' + esc(r.error) + '</div>'; return; }
       if (want) thumbAt[id] = Date.now();
@@ -904,7 +906,7 @@
       }
       Object.assign(cur, r.event); guests = r.guests; jset('bq_g_' + id, guests); setStats(r.stats);
       if (view === 'vEvent') { renderEventHeader(); renderGuests(); renderSchools(); }
-    }).catch(function () { pending--; });
+    }).catch(function () { pending = Math.max(0, pending - 1); });
   }
   function renderGuests(loading) {
     var q = $('search').value.trim().toLowerCase();
@@ -937,13 +939,13 @@
     if (!g) return;
     var next = !g.paid;
     g.paid = next; if (btn) { btn.classList.toggle('yes', next); btn.textContent = next ? 'Paid' : 'Not paid'; }
-    pending++;
+    pending++; pendingAt = Date.now();
     api('setPaid', { event: cur.id, ticket: ticket, paid: next ? '1' : '0' }).then(function (r) {
-      pending--;
+      pending = Math.max(0, pending - 1);
       if (r.ok) setStats(r.stats); else g.paid = !next;
       renderGuests();
     }).catch(function () {
-      pending--; enqueue('setPaid', { event: cur.id, ticket: ticket, paid: next ? '1' : '0' });
+      pending = Math.max(0, pending - 1); enqueue('setPaid', { event: cur.id, ticket: ticket, paid: next ? '1' : '0' });
       jset('bq_g_' + cur.id, guests); localStats(); renderGuests();
     });
   }
@@ -963,7 +965,7 @@
         .catch(function () { cur.status = prev; renderEventHeader(); });
     };
   });
-  $('scanBtn').onclick = function () { hideVerdict(); go('vScan'); prefetchPhotos(); setTimeout(function () { loadOcr().catch(function () {}); }, 400); };
+  $('scanBtn').onclick = function () { hideVerdict(); go('vScan'); prefetchPhotos(); };
   // The scanner keeps every guest's big photo on the phone, so the face shows instantly at the door.
   var bigPhotos = {}, photoLast = {}, photoAt = {};
   function bp(id) { return cur ? bigPhotos[cur.id + ':' + id] : ''; }
@@ -1108,6 +1110,7 @@
     return null;
   }
   // The text reader (Tesseract, free and open source) loads once, the first time the scanner opens.
+  var WORDS_ON = false;   // tickets are QR codes; the word reader stays off
   var ocr = { loading: null, worker: null, busy: false, lastAsk: '' };
   var OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
   function loadOcr() {
@@ -1147,7 +1150,7 @@
   }
   // Reads the camera picture every moment while scanning, like the QR scanner does.
   setInterval(function () {
-    if (ocr.busy || busy || view !== 'vScan' || !$('camBox').classList.contains('live')) return;
+    if (!WORDS_ON || ocr.busy || busy || view !== 'vScan' || !$('camBox').classList.contains('live')) return;
     var v = $('camVideo'); if (!v || !v.videoWidth) return;
     ocr.busy = true;
     loadOcr().then(function (w) { return w.recognize(frameCanvas(v, v.videoWidth, v.videoHeight)); })
@@ -1408,9 +1411,9 @@
     busy = true; lastScan = null;
     verdict('wait', 'Reading photo…', '', '', '', null);
     decodePhoto(f).then(function (text) { busy = false; onCode(text); }, function () {
-      return loadOcr().then(function (w) { return w.recognize(f); }).then(function (res) { busy = false; if (!useReadText(res.data.text)) throw new Error('none'); });
+      throw new Error('none');
     })
-      .catch(function () { verdict('bad', 'No code found', 'Try again a little closer', 'Fill most of the photo with the 3 words (or the QR code), sharp and well lit. Or type the words below.', '', null); });
+      .catch(function () { verdict('bad', 'No code found', 'Try again a little closer', 'Fill most of the photo with the QR code, sharp and well lit. Or type the ticket ID below.', '', null); });
   };
   function buzz(p) { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} }
   $('nextBtn').onclick = function () {
