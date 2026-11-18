@@ -358,6 +358,12 @@
   .linkbox { background:var(--s1); border-color:var(--edge); border-radius:10px; }
   .ticket .main .pill, .hero .pill { align-self:flex-start; }
   .mini b { font-size:18px; white-space:nowrap; }
+  .group { background:var(--s1); border:1px solid var(--edge); border-radius:14px; overflow:hidden; margin-bottom:18px; }
+  .group > details.fold, .group > .panel { background:transparent; border:0; border-radius:0; margin:0 !important; }
+  .group > * + * { border-top:1px solid var(--edge) !important; }
+  .group > .panel { padding:16px; }
+  details.fold > summary > span:first-child { white-space:nowrap; }
+  .av { font-stretch:100%; }
   .del-btn { background:transparent; border:0; }
 </style>
 </head>
@@ -473,12 +479,13 @@
       <button class="btn btn-pink" id="scanBtn"><svg><use href="#i-scan"/></svg>Scan tickets</button>
       <button class="btn btn-ghost admin-only" id="shareBtn"><svg><use href="#i-share"/></svg>Share sign-up link</button>
     </div>
+    <div class="group admin-only">
     <details class="fold admin-only" id="limFold">
-      <summary><span>Limits &amp; grade 11</span><span class="sum" id="limSum">No limits</span></summary>
+      <summary><span>Limits</span><span class="sum" id="limSum">No limits</span></summary>
       <div class="fbody">
         <div class="chips3" style="grid-template-columns:1fr 1fr;margin-bottom:10px">
-          <div class="mini"><b id="eG11L">0</b><span>Grade 11 · LFIGP</span></div>
-          <div class="mini"><b id="eG11O">0</b><span>Grade 11 · other schools</span></div>
+          <div class="mini"><b id="eG11L">0</b><span>Grade 11, LFIGP</span></div>
+          <div class="mini"><b id="eG11O">0</b><span>Grade 11, other schools</span></div>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
           <label class="lim">Boys<input id="lBoys" type="number" inputmode="numeric" min="0" placeholder="–"></label>
@@ -486,8 +493,8 @@
           <label class="lim">Total<input id="lTotal" type="number" inputmode="numeric" min="0" placeholder="–"></label>
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
-          <label class="lim">Grade 11 · LFIGP<input id="lG11L" type="number" inputmode="numeric" min="0" placeholder="–"></label>
-          <label class="lim">Grade 11 · others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+          <label class="lim">Grade 11, LFIGP<input id="lG11L" type="number" inputmode="numeric" min="0" placeholder="–"></label>
+          <label class="lim">Grade 11, others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
         </div>
         <button class="btn btn-small" id="limBtn" type="button" style="margin-top:10px;width:100%">Save limits</button>
         <div class="msg" id="limMsg" style="margin-top:6px">Blank = no limit. Change any time, even live.</div>
@@ -527,6 +534,7 @@
       <div class="msg" id="gMsg" style="margin-top:6px"></div>
       </div>
     </details>
+    </div>
     <div class="row-between" style="margin-bottom:10px"><div class="eyebrow">Guest list</div><span class="muted" id="gCount" style="font-size:13px"></span></div>
     <input id="search" placeholder="Search names or ticket IDs" style="margin-bottom:10px">
     <div class="filters" id="filters" style="margin-bottom:12px">
@@ -646,6 +654,12 @@
       .then(function (r) { clearTimeout(timer); lastOk = Date.now(); setLive(true); return r; })
       .catch(function (e) { clearTimeout(timer); setLive(false); throw e; });
   }
+  // "2026-12-12" -> "Sat 12 Dec" (with the year when it isn't this year).
+  function fmtDay(d) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(d || '')); if (!m) return d || '';
+    var dt = new Date(+m[1], +m[2] - 1, +m[3]), t = dt.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    return dt.getFullYear() === new Date().getFullYear() ? t : t + ' ' + dt.getFullYear();
+  }
   function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
   function signupLink(ev) { return BASE + '?event=' + encodeURIComponent(ev.id); }
   function initials(n) { var p = String(n).trim().split(/\s+/); return ((p[0] || '')[0] || '') + ((p.length > 1 ? p[p.length - 1][0] : '') || ''); }
@@ -657,7 +671,7 @@
     var n = queue.length;
     $('live').classList.toggle('off', !online && !n);
     $('live').classList.toggle('queued', n > 0);
-    $('liveTxt').textContent = n ? (online ? 'syncing ' + n : 'offline · ' + n + ' to sync') : (online ? 'live' : 'offline');
+    $('liveTxt').textContent = n ? (online ? 'syncing ' + n : 'offline, ' + n + ' to sync') : (online ? 'live' : 'offline');
     $('offNote').classList.toggle('hidden', online);
   }
   function enqueue(action, params) {
@@ -733,11 +747,11 @@
   }
   function ticketCard(e) {
     var s = e.stats || { signedUp: 0, checkedIn: 0, paid: 0 };
-    var sub = [e.date, e.location, e.price ? e.price : ''].filter(Boolean).join(' · ') || 'No date yet';
+    var sub = [fmtDay(e.date), e.location, e.price ? e.price : ''].filter(Boolean).join(', ') || 'No date yet';
     return '<button class="ticket" data-id="' + esc(e.id) + '"><div class="main">' +
       '<span class="pill ' + esc(e.status) + '">' + esc(e.status) + '</span>' +
       '<div class="t-name">' + esc(e.name) + '</div><div class="t-sub">' + esc(sub) + '</div>' +
-      '<div class="t-sub" style="font-weight:700">' + s.signedUp + ' ' + (s.signedUp === 1 ? 'person' : 'people') + (s.boys || s.girls ? ' · ' + (s.boys || 0) + (s.boys === 1 ? ' boy · ' : ' boys · ') + (s.girls || 0) + (s.girls === 1 ? ' girl' : ' girls') : '') + (s.waiting ? ' · ' + s.waiting + ' waiting' : '') + '</div>' +
+      '<div class="t-sub" style="font-weight:700">' + s.signedUp + ' ' + (s.signedUp === 1 ? 'person' : 'people') + (s.boys || s.girls ? ', ' + (s.boys || 0) + (s.boys === 1 ? ' boy, ' : ' boys, ') + (s.girls || 0) + (s.girls === 1 ? ' girl' : ' girls') : '') + (s.waiting ? ', ' + s.waiting + ' waiting' : '') + '</div>' +
       (e.missing ? '<div class="t-sub" style="color:var(--red)">Guest tab was deleted from the sheet</div>' :
         '<div class="bar"><i style="width:' + pct(s.checkedIn, s.signedUp) + '%"></i></div>') +
       '</div><div class="stub"><b>' + s.checkedIn + '</b><span>of ' + s.signedUp + ' in</span></div></button>';
@@ -802,16 +816,16 @@
     $('fullBox').classList.toggle('hidden', !full);
     var nl = function (v) { return v === '' || v === undefined || v === null; };
     var parts = [];
-    if (cur && !nl(cur.boysLimit)) parts.push('B ' + cur.boysLimit); if (cur && !nl(cur.girlsLimit)) parts.push('G ' + cur.girlsLimit);
+    if (cur && !nl(cur.boysLimit)) parts.push('Boys ' + cur.boysLimit); if (cur && !nl(cur.girlsLimit)) parts.push('Girls ' + cur.girlsLimit);
     if (cur && !nl(tl)) parts.push('Total ' + tl);
     if (cur && (!nl(cur.g11Lfigp) || !nl(cur.g11Other))) parts.push('G11 ' + (nl(cur.g11Lfigp) ? '–' : cur.g11Lfigp) + '/' + (nl(cur.g11Other) ? '–' : cur.g11Other));
-    $('limSum').textContent = parts.length ? parts.join(' · ') : 'No limits';
+    $('limSum').textContent = parts.length ? parts.join(', ') : 'No limits';
   }
   function renderEventHeader() {
     $('eName').textContent = cur.name;
     $('crumb').textContent = cur.name;
     $('ePill').className = 'pill ' + cur.status; $('ePill').textContent = cur.status;
-    $('eSub').textContent = [cur.date, cur.location, cur.price].filter(Boolean).join(' · ');
+    $('eSub').textContent = [fmtDay(cur.date), cur.location, cur.price].filter(Boolean).join(', ');
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
@@ -826,9 +840,9 @@
     var ok = guests.filter(function (g) { return !g.removed && !g.suspicious; });
     var sent = ok.filter(function (g) { return g.groupSent; }).length, opened = ok.filter(function (g) { return g.groupOpened; }).length;
     var closed = cur.status === 'Closed' || cur.status === 'Done';
-    $('grpSum').textContent = cur.groupLink && sent ? sent + '/' + ok.length + ' sent · ' + opened + ' opened' : closed ? 'Ready: send the links' : 'Set up after sign-ups close';
+    $('grpSum').textContent = cur.groupLink && sent ? sent + '/' + ok.length + ' sent, ' + opened + ' opened' : closed ? 'Ready: send the links' : 'Set up after sign-ups close';
     if (!cur.groupLink) $('gMsg').textContent = 'No group link saved yet.';
-    else $('gMsg').textContent = 'Links sent: ' + sent + ' of ' + ok.length + ' · Opened: ' + opened + '. Kicked, banned and suspicious people never get a link.';
+    else $('gMsg').textContent = 'Links sent: ' + sent + ' of ' + ok.length + ', Opened: ' + opened + '. Kicked, banned and suspicious people never get a link.';
   }
   $('gSave').onclick = function () {
     if (!cur) return;
@@ -869,7 +883,7 @@
     api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11 }).then(function (r) {
       if (!r.ok) { $('limMsg').textContent = r.error || 'Could not save.'; return; }
       cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; setStats(cur.stats);
-      $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ' · Girls: ' + (g || 'no limit') + ' · Total: ' + (t || 'no limit') + ' · G11 LFIGP: ' + (gl || 'no limit') + ' · G11 other: ' + (go11 || 'no limit') + '.';
+      $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ', Girls: ' + (g || 'no limit') + ', Total: ' + (t || 'no limit') + ', G11 LFIGP: ' + (gl || 'no limit') + ', G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
   var thumbAt = {};
@@ -903,12 +917,12 @@
       return true;
     }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     var nb = guests.filter(function (g) { return !g.removed && g.gender === 'Boy'; }).length, ng = guests.filter(function (g) { return !g.removed && g.gender === 'Girl'; }).length;
-    $('gCount').textContent = guests.length ? ((list.length === guests.length ? guests.length + ' people' : list.length + ' of ' + guests.length) + ' · ' + nb + (nb === 1 ? ' boy · ' : ' boys · ') + ng + (ng === 1 ? ' girl' : ' girls')) : '';
+    $('gCount').textContent = guests.length ? ((list.length === guests.length ? guests.length + ' people' : list.length + ' of ' + guests.length) + ', ' + nb + (nb === 1 ? ' boy, ' : ' boys, ') + ng + (ng === 1 ? ' girl' : ' girls')) : '';
     if (!guests.length) { $('gList').innerHTML = '<div class="empty">' + (loading ? 'Loading guests…' : '<b>No one yet</b>Share the sign-up link to start filling the list.') + '</div>'; return; }
     $('gList').innerHTML = list.map(function (g) {
       return '<div class="guest" data-g="' + esc(g.id) + '">' + (g.thumb ? '<img class="av" alt="" src="' + esc(g.thumb) + '">' : '<div class="av" style="background:' + avColor(g.id) + '">' + esc(initials(g.name).toUpperCase()) + '</div>') +
-        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ' · ' + esc(g.school) : '') + '</span>' +
-        (g.checkedIn ? '<span class="in">In at ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' · ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
+        '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ', ' + esc(g.school) : '') + '</span>' +
+        (g.checkedIn ? '<span class="in">In at ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' by ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
         '</div></div><button class="pay' + (g.paid ? ' yes' : '') + '" data-t="' + esc(g.id) + '">' + (g.paid ? 'Paid' : 'Not paid') + '</button></div>';
     }).join('') || '<div class="empty">No one matches that.</div>';
     Array.prototype.forEach.call($('gList').querySelectorAll('.pay'), function (b) {
@@ -1164,7 +1178,7 @@
   function askConfirm(code, g) {
     pendingCode = code; pendingGuest = g; lastScan = null;
     scanPhoto = bp(g.id) || g.thumb || '';
-    var what = 'Grade ' + g.grade + (g.school ? ' · ' + g.school : '') + ' · ' + (g.paid ? 'Paid' : 'Not paid');
+    var what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
     buzz(60);
     verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : 'No sign-up photo: check their ID', null);
     showConfirm(true);
@@ -1195,17 +1209,17 @@
     var g = guests.find(function (x) { return x.id.toUpperCase() === t; });
     scanPhoto = (g && g.thumb) || '';
     if (!g) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'Not in the saved guest list', 'Offline: if they signed up very recently, check again once online.', '', null); }
-    var who = g.name, what = 'Grade ' + g.grade + (g.school ? ' · ' + g.school : '') + ' · ' + (g.paid ? 'Paid' : 'Not paid');
-    if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : 'Removed', who, 'Taken off the list. Do not let in.', 'Tell them to text Andrea · ' + g.id, null); }
-    if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, 'Matches the Blocked list. Do not let in.', 'Tell them to text Andrea · ' + g.id, null); }
+    var who = g.name, what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
+    if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : 'Removed', who, 'Taken off the list. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
+    if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, 'Matches the Blocked list. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
     if ([11, 12].indexOf(Number(g.grade)) < 0) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Only grades 11 & 12 allowed', g.id, null); }
-    if (g.checkedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + g.time + (g.by ? ' · scanned by ' + g.by : ''), null); }
+    if (g.checkedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + g.time + (g.by ? ', scanned by ' + g.by : ''), null); }
     g.checkedIn = true; g.time = 'offline'; g.by = cfg.me; jset('bq_g_' + cur.id, guests); localStats();
     lastScan = { id: g.id, name: g.name, grade: g.grade, paid: g.paid, offline: true };
     buzz(150);
-    if (g.check) return verdict('warn', 'Check ID first', who, what + ' · email may be fake', 'Saved offline · syncs when back online', g.paid ? true : false);
-    if (g.paid) verdict('ok', 'Let them in', who, what, 'Saved offline · syncs when back online', true);
-    else verdict('warn', 'Collect payment', who, what, 'Saved offline · syncs when back online', false);
+    if (g.check) return verdict('warn', 'Check ID first', who, what + ', email may be fake', 'Saved offline. Syncs when back online.', g.paid ? true : false);
+    if (g.paid) verdict('ok', 'Let them in', who, what, 'Saved offline. Syncs when back online.', true);
+    else verdict('warn', 'Collect payment', who, what, 'Saved offline. Syncs when back online.', false);
   }
   var scanPhoto = '';
   var autoNext = null;
@@ -1222,19 +1236,19 @@
       scanPhoto = r.photo || bp(r.id) || (g && g.thumb) || '';
       if (g && r.eligible && !r.alreadyCheckedIn) { g.checkedIn = true; g.time = r.time; g.by = r.by; }
       if (g && r.suspicious) g.suspicious = true;
-      var who = r.name, what = 'Grade ' + r.grade + (r.school ? ' · ' + r.school : '') + ' · ' + (r.paid ? 'Paid' : 'Not paid');
-      if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed', who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea · ' + r.id, null); }
-      if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea · ' + r.id, null); }
-      if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Grade ' + r.grade + ' · only 11 & 12 allowed', r.id, null); }
-      if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + r.time + (r.by ? ' · scanned by ' + r.by : ''), null); }
+      var who = r.name, what = 'Grade ' + r.grade + (r.school ? ', ' + r.school : '') + ', ' + (r.paid ? 'paid' : 'not paid');
+      if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed', who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+      if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+      if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Grade ' + r.grade + '. Only grades 11 and 12 can come in.', r.id, null); }
+      if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + r.time + (r.by ? ', scanned by ' + r.by : ''), null); }
       buzz(150);
-      if (r.check) { buzz([200, 100, 200]); return verdict('warn', 'Check ID first', who, what + ' · ' + r.check, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, r.paid ? true : false); }
+      if (r.check) { buzz([200, 100, 200]); return verdict('warn', 'Check ID first', who, what + ', ' + r.check, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, r.paid ? true : false); }
       if (r.paid) {
-        verdict('ok', 'Let them in', who, what, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, true);
+        verdict('ok', 'Let them in', who, what, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, true);
         // All good: straight back to scanning for the next person.
         clearTimeout(autoNext); autoNext = setTimeout(function () { if ($('verdict').classList.contains('ok')) $('nextBtn').onclick(); }, 1400);
       }
-      else verdict('warn', 'Collect payment', who, what, 'Let in by ' + (r.by || cfg.me) + ' · ' + r.time, false);
+      else verdict('warn', 'Collect payment', who, what, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, false);
     }).catch(function () { setLive(false); offlineScan(code); });
   }
   function verdict(kind, word, who, what, meta, paid) {
@@ -1270,7 +1284,7 @@
     $('gmPhoto').src = g.thumb || ''; $('gmPhoto').style.visibility = g.thumb ? 'visible' : 'hidden';
     var rows = [['Ticket', g.id], ['Grade', g.grade], ['School', g.school || '–'], ['Gender', g.gender || '–'], ['WhatsApp', g.phone || '–'],
       ['Email', g.email || '–'], ['Signed up', g.signedUp || '–'], ['Paid', g.paid ? 'Yes' : 'No'],
-      ['Checked in', g.checkedIn ? ('Yes · ' + (g.time || '') + (g.by ? ' · ' + g.by : '')) : 'Not yet'],
+      ['Checked in', g.checkedIn ? ('Yes, ' + (g.time || '') + (g.by ? ' by ' + g.by : '')) : 'Not yet'],
       ['Status', g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : (g.suspicious ? 'Suspicious' : (g.check ? 'Check ID' : 'OK'))]];
     $('gmInfo').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
     $('gModal').classList.remove('hidden');
@@ -1323,7 +1337,7 @@
     var list = Object.keys(m).map(function (k) { return m[k]; }).sort(function (a, b) { return b.total - a.total; });
     $('schSum').textContent = list.length ? list.length + ' school' + (list.length === 1 ? '' : 's') : '';
     $('schoolList').innerHTML = list.length ? list.map(function (s) {
-      return '<div class="school"><b>' + esc(s.name) + '</b><span>' + s.boys + ' boys</span><span>' + s.girls + ' girls</span><span>' + s.total + ' total · ' + s.g11 + ' G11</span></div>';
+      return '<div class="school"><b>' + esc(s.name) + '</b><span>' + s.boys + ' boys</span><span>' + s.girls + ' girls</span><span>' + s.total + ' total, ' + s.g11 + ' G11</span></div>';
     }).join('') : '<div class="msg">No sign-ups yet.</div>';
   }
   $('gModal').onclick = function (e) { if (e.target === $('gModal')) $('gModal').classList.add('hidden'); };
@@ -1338,13 +1352,13 @@
       setStats(r.stats);
       var g = guests.find(function (x) { return x.id === id; }); if (g) g.paid = true;
       lastScan.paid = true;
-      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ' · Paid', id, true);
+      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ', paid', id, true);
     }).catch(function () {
       $('markPaidBtn').textContent = 'Mark as paid';
       enqueue('setPaid', { event: cur.id, ticket: id, paid: '1' });
       var g = guests.find(function (x) { return x.id === id; }); if (g) { g.paid = true; jset('bq_g_' + cur.id, guests); localStats(); }
       lastScan.paid = true;
-      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ' · Paid', 'Saved offline · syncs when back online', true);
+      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ', paid', 'Saved offline. Syncs when back online.', true);
     });
   };
   // Read a QR from a photo: shrink it, then try jsQR, the phone's built-in detector, and html5-qrcode.
