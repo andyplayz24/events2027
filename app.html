@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://unpkg.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob: mediastream:; connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cdn.jsdelivr.net; worker-src 'self' blob:; manifest-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'">
 <meta name="referrer" content="no-referrer">
 <script>/* Can't be shown inside another site's frame (stops click-jacking). */ if (window.top !== window.self) { try { window.top.location.replace(window.location.href); } catch (e) { document.documentElement.style.display = 'none'; } }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -12,10 +12,10 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="icon-192.png">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&display=swap">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<link rel="preload" href="archivo.woff2" as="font" type="font/woff2" crossorigin>
+<style>@font-face { font-family: 'Archivo'; font-style: normal; font-display: swap; font-weight: 100 900; font-stretch: 62% 125%; src: url(archivo.woff2) format('woff2-variations'), url(archivo.woff2) format('woff2'); }</style>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js" defer></script>
 <script src="scanner.js"></script>
 <style>
   /* LFIGP Bouncer: night-out palette. Deep ink base, hot-pink action color, sun-gold for "heads up", mint for "let in". */
@@ -580,6 +580,7 @@
     </div>
     <div class="cam-msg hidden" id="camMsg" role="status"></div>
     <div class="muted" id="ocrNote" style="font-size:13px;margin-top:8px;text-align:center">Point the camera at the QR code.</div>
+    <div id="lateWarn" class="hidden" role="alert" style="margin-top:12px;padding:14px;border-radius:12px;background:#d1343b;color:#fff;font-weight:700"></div>
     <div id="verdict" class="verdict hidden" style="margin-top:12px">
       <img id="vPhoto" class="vphoto hidden" alt="Their sign-up photo">
       <div class="word" id="vWord"></div>
@@ -962,7 +963,12 @@
         var old = {}; guests.forEach(function (g) { old[g.id] = g.thumb || ''; });
         r.guests.forEach(function (g) { if (g.thumb === undefined) { if (!(g.id in old)) thumbAt[id] = 0; g.thumb = old[g.id] || ''; } });
       }
-      Object.assign(cur, r.event); guests = r.guests; jset('bq_g_' + id, guests); setStats(r.stats);
+      // A list that left Google just before a Let in / Mark as paid must not undo it on this phone.
+      r.guests.forEach(function (g) {
+        var j = justIn[g.id]; if (j && !g.checkedIn && Date.now() - j.at < 120000) { g.checkedIn = true; g.time = j.time; g.by = cfg.me; }
+        if (justPaid[g.id] && !g.paid && Date.now() - justPaid[g.id] < 120000) g.paid = true;
+      });
+      Object.assign(cur, r.event); guests = r.guests; gAt[id] = Date.now(); jset('bq_g_' + id, guests); setStats(r.stats);
       if (view === 'vEvent') { renderEventHeader(); renderGuests(); renderSchools(); }
     }).catch(function () { pending = Math.max(0, pending - 1); });
   }
@@ -1215,16 +1221,36 @@
       .then(function (res) { ocr.busy = false; useReadText(res.data.text); })
       .catch(function () { ocr.busy = false; });
   }, 600);
+  // SPEED: the phone decides instantly from its guest list (refreshed every few seconds),
+  // and Google double-checks in the background. If Google ever disagrees, the screen corrects itself loudly.
+  var gAt = {}, justIn = {}, justPaid = {};
+  function eligibleG(g) { return !g.removed && !g.suspicious && [11, 12].indexOf(Number(g.grade)) >= 0; }
+  function asR(g) { return { id: g.id, name: g.name, grade: g.grade, school: g.school, paid: g.paid, check: g.check, removed: g.removed, suspicious: g.suspicious, reason: g.reason || '', eligible: eligibleG(g), alreadyCheckedIn: !!g.checkedIn, time: g.time, by: g.by }; }
+  function hhmm() { var d = new Date(); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2); }
   function preview(code) {
-    busy = true; lastScan = null; scanPhoto = ''; pendingCode = code; pendingGuest = null; showConfirm(false);
-    var gw = /^(W:)?[a-z]+ [a-z]+ [a-z]+$/i.test(String(code).trim()) ? guestByWords(String(code).replace(/^W:/i, '')) : null;
+    busy = true; lastScan = null; scanPhoto = ''; pendingCode = code = String(code).trim(); pendingGuest = null; showConfirm(false); clearTimeout(autoNext);
+    var gw = WORDS_ON && /^(W:)?[a-z]+ [a-z]+ [a-z]+$/i.test(code) ? guestByWords(code.replace(/^W:/i, '')) : null;
     if (gw) code = pendingCode = 'W:' + gw.words;
-    var c = code.toUpperCase(), evId = '', t = c;
+    var c = code.toUpperCase(), evId = '', t = c, here = cur.id.toUpperCase();
     if (c.indexOf('|') > 0) { evId = c.split('|')[0]; t = c.split('|')[1]; }
-    var g = gw || ((!evId || evId === cur.id.toUpperCase()) ? guests.find(function (x) { return x.id.toUpperCase() === t; }) : null);
-    if (g && !g.removed && !g.suspicious && !g.checkedIn && [11, 12].indexOf(Number(g.grade)) >= 0) return askConfirm(code, g);
-    if (g || evId && evId !== cur.id.toUpperCase()) return lookup(code);      // something's wrong: the sheet decides and logs it
-    // Not in the saved list yet (just signed up?): ask the sheet without letting them in.
+    if (evId && evId !== here) {
+      var other = events.find(function (e) { return String(e.id).toUpperCase() === evId; });
+      buzz([200, 100, 200]); verdict('bad', 'Wrong night', 'Ticket is for another event', other ? other.name : '', '', null);
+      api('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 }).catch(function () {});
+      return;
+    }
+    var g = gw || guests.find(function (x) { return x.id.toUpperCase() === t; });
+    if (g) {
+      if (eligibleG(g) && !g.checkedIn) { askConfirm(code, g); return verify(code, 'confirm'); }
+      scanPhoto = bp(g.id) || g.thumb || '';
+      showRefusal(asR(g));
+      return verify(code, 'refused');
+    }
+    if (Date.now() - (gAt[cur.id] || 0) < 20000) {
+      buzz([200, 100, 200]); verdict('bad', 'Not on the list', 'This ticket is not in this event', '', '', null);
+      return verify(code, 'missing');
+    }
+    // The saved list is old (phone was asleep or offline): ask Google before deciding.
     verdict('wait', 'Checking…', '', '', '', null);
     api('scan', { event: cur.id, code: code, peek: 1 }).then(function (r) {
       if (pendingCode !== code) return;
@@ -1235,28 +1261,93 @@
       lookup(code);
     }).catch(function () { setLive(false); offlineScan(code); });
   }
+  // Background double-check of what the screen shows. Also writes refusals in the scan log.
+  function verify(code, shown) {
+    var g0 = pendingGuest, needPhoto = shown === 'confirm' && g0 && !bp(g0.id);
+    api('scan', { event: cur.id, code: code, peek: 1, nophoto: needPhoto ? 0 : 1, why: shown === 'confirm' ? 0 : 1 }).then(function (r) {
+      if (!r || !r.ok || pendingCode !== code) return;
+      if (r.photo && r.id) {
+        bigPhotos[cur.id + ':' + r.id] = r.photo;
+        if (pendingGuest && pendingGuest.id === r.id && $('verdict').classList.contains('check')) { scanPhoto = r.photo; $('vPhoto').src = r.photo; $('vPhoto').classList.remove('hidden'); $('vMeta').textContent = r.check ? 'Check their ID too: ' + r.check : 'Compare the photo with their face'; }
+      }
+      var okNow = r.found && r.eligible && !r.alreadyCheckedIn;
+      var lg = r.found ? guests.find(function (x) { return x.id === r.id; }) : null;
+      if (lg) { lg.checkedIn = !!r.alreadyCheckedIn; lg.time = r.time; lg.by = r.by; lg.removed = r.removed || ''; lg.suspicious = !!r.suspicious; lg.paid = r.paid; }
+      if (shown === 'confirm' && !okNow && $('verdict').classList.contains('check')) {
+        // Someone else scanned or removed them a moment ago: refuse.
+        showConfirm(false); pendingGuest = null;
+        if (r.wrongEvent) { buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', r.wrongEvent, '', null); }
+        if (!r.found) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'This ticket is not in this event', '', '', null); }
+        return showRefusal(r);
+      }
+      if (shown !== 'confirm' && okNow && !$('verdict').classList.contains('hidden') && !$('verdict').classList.contains('check') && !$('verdict').classList.contains('ok')) {
+        // They just signed up, or were let back on the list: show them for checking.
+        if (r.photo) bigPhotos[cur.id + ':' + r.id] = r.photo;
+        askConfirm(code, { id: r.id, name: r.name, grade: r.grade, school: r.school, paid: r.paid, check: r.check, thumb: (lg && lg.thumb) || '' });
+        if (!bp(r.id)) verify(code, 'confirm');
+      }
+    }).catch(function () {});
+  }
   function showConfirm(on) { $('confirm2').classList.toggle('hidden', !on); if (on) $('nextBtn').classList.add('hidden'); }
   function askConfirm(code, g) {
+    if (g.check === true) g = Object.assign({}, g, { check: 'email may be fake' });
     pendingCode = code; pendingGuest = g; lastScan = null;
     scanPhoto = bp(g.id) || g.thumb || '';
     var what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
     buzz(60);
-    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : 'No sign-up photo: check their ID', null);
+    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : 'Loading their photo…', null);
     showConfirm(true);
-    if (!bp(g.id)) api('guestPhoto', { event: cur.id, ticket: g.id }).then(function (r) {
-      if (!r || !r.photo) return;
-      bigPhotos[cur.id + ':' + g.id] = r.photo;
-      if (pendingGuest === g && $('verdict').classList.contains('check')) { $('vPhoto').src = r.photo; $('vPhoto').classList.remove('hidden'); $('vMeta').textContent = 'Compare the photo with their face'; }
-    }).catch(function () {});
   }
-  // Step 2: Yes = let in (ticket used). Not them = refused, ticket stays unused, logged.
-  $('yesBtn').onclick = function () { if (!pendingGuest) return; showConfirm(false); lookup(pendingCode, true); };
+  // Step 2: Let in = shown at once; Google records it in the background.
+  $('yesBtn').onclick = function () { if (!pendingGuest) return; showConfirm(false); letIn(pendingCode, pendingGuest); };
   $('noBtn').onclick = function () {
     if (!pendingGuest) return;
     var g = pendingGuest; showConfirm(false); pendingGuest = null; buzz([400, 120, 400]);
     verdict('bad', 'Not them', g.name, "Don't let this person in. The ticket was NOT used.", 'Saved in the scan log', null);
     api('scan', { event: cur.id, code: pendingCode, refuse: 1 }).catch(function () {});
   };
+  function letIn(code, g) {
+    var lg = guests.find(function (x) { return x.id === g.id; }), tm = hhmm();
+    if (!lg) { lg = { id: g.id, name: g.name, grade: g.grade, school: g.school, paid: g.paid, check: g.check, thumb: g.thumb || '' }; guests.push(lg); }
+    lg.checkedIn = true; lg.time = tm; lg.by = cfg.me; justIn[g.id] = { at: Date.now(), time: tm }; jset('bq_g_' + cur.id, guests); localStats();
+    lastScan = { id: g.id, name: g.name, grade: g.grade, paid: g.paid };
+    scanPhoto = bp(g.id) || g.thumb || '';
+    showAdmitted({ name: g.name, grade: g.grade, school: g.school, paid: g.paid, check: g.check, by: cfg.me, time: tm });
+    api('scan', { event: cur.id, code: code, nophoto: 1 }).then(function (r) {
+      if (r && r.stats) setStats(r.stats);
+      if (!r || !r.ok) return;
+      if (r.found && r.eligible && !r.alreadyCheckedIn) { lg.time = r.time; if (lastScan && lastScan.id === r.id) lastScan = r; return; }
+      // Google refused it (another phone let them in a moment ago, or they were removed). Undo and warn loudly.
+      delete justIn[g.id]; lg.checkedIn = !!r.alreadyCheckedIn; lg.time = r.time; lg.by = r.by; localStats();
+      clearTimeout(autoNext);
+      if (pendingCode === code) { pauseScanner(); busy = true; showRefusal(r, true); }
+      else lateWarn(r);
+    }).catch(function () { enqueue('scan', { event: cur.id, code: code }); $('vMeta').textContent = 'No internet: saved on this phone, syncs when back online.'; });
+  }
+  function lateWarn(r) {
+    var w = $('lateWarn'); buzz([400, 120, 400, 120, 400]);
+    w.textContent = 'STOP ' + (r.name || 'that guest') + ': ' + (r.alreadyCheckedIn ? 'their ticket was already used' + (r.by ? ' (scanned by ' + r.by + ')' : '') : 'they are not allowed in') + '. Call them back.';
+    w.classList.remove('hidden'); w.onclick = function () { w.classList.add('hidden'); };
+  }
+  function showAdmitted(r) {
+    buzz(150);
+    var who = r.name, what = 'Grade ' + r.grade + (r.school ? ', ' + r.school : '') + ', ' + (r.paid ? 'paid' : 'not paid'), meta = 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time;
+    if (r.check) { buzz([200, 100, 200]); return verdict('warn', 'Check ID first', who, what + ', ' + r.check, meta, r.paid ? true : false); }
+    if (r.paid) {
+      verdict('ok', 'Let them in', who, what, meta, true);
+      // All good: straight back to scanning for the next person.
+      clearTimeout(autoNext); autoNext = setTimeout(function () { if ($('verdict').classList.contains('ok')) $('nextBtn').onclick(); }, 1200);
+    }
+    else verdict('warn', 'Collect payment', who, what, meta, false);
+  }
+  function showRefusal(r, late) {
+    var who = r.name, pre = late ? 'STOP: ' : '';
+    if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + (r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed'), who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+    if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+    if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', pre + 'Bounced', who, 'Grade ' + r.grade + '. Only grades 11 and 12 can come in.', r.id, null); }
+    if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + (r.time || '') + (r.by ? ', scanned by ' + r.by : ''), null); }
+    if (!r.found && late) { buzz([200, 100, 200]); return verdict('bad', 'STOP: Not on the list', 'This ticket is not in this event', '', '', null); }
+  }
   function localStats() {
     setStats({ signedUp: guests.length, checkedIn: guests.filter(function (g) { return g.checkedIn; }).length, paid: guests.filter(function (g) { return g.paid; }).length });
   }
@@ -1297,19 +1388,8 @@
       scanPhoto = r.photo || bp(r.id) || (g && g.thumb) || '';
       if (g && r.eligible && !r.alreadyCheckedIn) { g.checkedIn = true; g.time = r.time; g.by = r.by; }
       if (g && r.suspicious) g.suspicious = true;
-      var who = r.name, what = 'Grade ' + r.grade + (r.school ? ', ' + r.school : '') + ', ' + (r.paid ? 'paid' : 'not paid');
-      if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed', who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
-      if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
-      if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Grade ' + r.grade + '. Only grades 11 and 12 can come in.', r.id, null); }
-      if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + r.time + (r.by ? ', scanned by ' + r.by : ''), null); }
-      buzz(150);
-      if (r.check) { buzz([200, 100, 200]); return verdict('warn', 'Check ID first', who, what + ', ' + r.check, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, r.paid ? true : false); }
-      if (r.paid) {
-        verdict('ok', 'Let them in', who, what, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, true);
-        // All good: straight back to scanning for the next person.
-        clearTimeout(autoNext); autoNext = setTimeout(function () { if ($('verdict').classList.contains('ok')) $('nextBtn').onclick(); }, 1400);
-      }
-      else verdict('warn', 'Collect payment', who, what, 'Let in by ' + (r.by || cfg.me) + ' at ' + r.time, false);
+      if (!r.eligible || r.alreadyCheckedIn || r.removed || r.suspicious) return showRefusal(r);
+      showAdmitted(r);
     }).catch(function () { setLive(false); offlineScan(code); });
   }
   function verdict(kind, word, who, what, meta, paid) {
@@ -1403,24 +1483,16 @@
   }
   $('gModal').onclick = function (e) { if (e.target === $('gModal')) $('gModal').classList.add('hidden'); };
   function hideVerdict() { $('verdict').className = 'verdict hidden'; busy = false; clearTimeout(autoNext); pendingGuest = null; $('confirm2').classList.add('hidden'); }
+  // Mark as paid: shown at once, saved in the background (kept on the phone if there's no internet).
   $('markPaidBtn').onclick = function () {
     if (!lastScan) return;
-    var id = lastScan.id;
-    $('markPaidBtn').textContent = 'Saving…';
-    api('setPaid', { event: cur.id, ticket: id, paid: '1' }).then(function (r) {
-      $('markPaidBtn').textContent = 'Mark as paid';
-      if (!r.ok) return;
-      setStats(r.stats);
-      var g = guests.find(function (x) { return x.id === id; }); if (g) g.paid = true;
-      lastScan.paid = true;
-      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ', paid', id, true);
-    }).catch(function () {
-      $('markPaidBtn').textContent = 'Mark as paid';
-      enqueue('setPaid', { event: cur.id, ticket: id, paid: '1' });
-      var g = guests.find(function (x) { return x.id === id; }); if (g) { g.paid = true; jset('bq_g_' + cur.id, guests); localStats(); }
-      lastScan.paid = true;
-      verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ', paid', 'Saved offline. Syncs when back online.', true);
-    });
+    var id = lastScan.id, ev = cur.id;
+    var g = guests.find(function (x) { return x.id === id; }); if (g) { g.paid = true; jset('bq_g_' + ev, guests); localStats(); }
+    justPaid[id] = Date.now(); lastScan.paid = true;
+    verdict('ok', 'Let them in', lastScan.name, 'Grade ' + lastScan.grade + ', paid', id, true);
+    clearTimeout(autoNext); autoNext = setTimeout(function () { if ($('verdict').classList.contains('ok')) $('nextBtn').onclick(); }, 1200);
+    api('setPaid', { event: ev, ticket: id, paid: '1' }).then(function (r) { if (r && r.ok) setStats(r.stats); })
+      .catch(function () { enqueue('setPaid', { event: ev, ticket: id, paid: '1' }); });
   };
   // Read a QR from a photo: shrink it, then try jsQR, the phone's built-in detector, and html5-qrcode.
   function decodePhoto(file) {

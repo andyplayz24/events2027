@@ -1,11 +1,10 @@
 // LFIGP Bouncer offline support + automatic updates.
-// Our own files (pages, scanner, icons): always try the internet first, so reopening the app gets the newest version.
-//   If there is no internet, the last saved copy is used, so the app still opens offline.
+// Our own files: shown instantly from the saved copy, updated in the background (works offline too).
 // Libraries from other sites: use the saved copy (they never change), refresh it in the background.
-const CACHE = 'bouncer-v26';
+const CACHE = 'bouncer-v28';
 const SHELL = [
   'app.html', 'index.html', 'join.html', 'camtest.html', 'scanner.js', 'manifest.webmanifest',
-  'icon-192.png', 'icon-512.png', 'apple-touch-icon.png',
+  'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'archivo.woff2',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
@@ -28,11 +27,17 @@ self.addEventListener('fetch', e => {
   if (url.hostname.endsWith('script.google.com') || url.hostname.endsWith('googleusercontent.com')) return;
 
   if (url.origin === self.location.origin) {
-    e.respondWith(fetch(req, { cache: 'no-cache' }).then(res => {
-      if (res && res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); }
-      return res;
-    }).catch(() => caches.match(req, { ignoreSearch: true })
-      .then(r => r || (req.mode === 'navigate' ? caches.match('app.html') : undefined))));
+    // Speed: open instantly from the saved copy, and fetch the newest version in the background.
+    // A new upload changes this file, so the app reloads itself with the new version a few seconds later.
+    const key = url.origin + url.pathname;
+    e.respondWith(caches.open(CACHE).then(c => c.match(key).then(hit => {
+      const net = fetch(req, { cache: 'no-cache' }).then(res => {
+        if (res && res.ok) c.put(key, res.clone());
+        return res;
+      });
+      if (hit) { e.waitUntil(net.catch(() => null)); return hit; }
+      return net.catch(() => req.mode === 'navigate' ? c.match(url.origin + url.pathname.replace(/[^/]*$/, 'app.html')) : undefined);
+    })));
     return;
   }
 
