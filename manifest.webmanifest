@@ -1,7 +1,7 @@
 {
-  "name": "LFIGP Bouncer",
+  "name": "Bouncer",
   "short_name": "Bouncer",
-  "description": "Door check-in for LFIGP events",
+  "description": "Door check-in for events",
   "start_url": "app.html",
   "scope": "./",
   "display": "browser",
