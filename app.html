@@ -453,6 +453,8 @@
           <input id="nG11L" type="number" inputmode="numeric" min="0" placeholder="G11 LFIGP">
           <input id="nG11O" type="number" inputmode="numeric" min="0" placeholder="G11 other schools">
         </div></div>
+      <div class="field"><label for="nPhoto">Selfie at sign-up</label>
+        <select id="nPhoto"><option value="1">Required: everyone takes a photo of their face</option><option value="0">Not needed for this event</option></select></div>
       <div class="field"><label for="nStatus">Sign-ups</label>
         <select id="nStatus"><option value="Open">Open now</option><option value="Planned">Not yet (planned)</option></select></div>
       <button class="btn btn-pink" id="createBtn">Create event</button>
@@ -506,6 +508,7 @@
           <label class="lim">Grade 11, LFIGP<input id="lG11L" type="number" inputmode="numeric" min="0" placeholder="–"></label>
           <label class="lim">Grade 11, others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
         </div>
+        <label class="lim" style="display:block;margin-top:8px">Selfie at sign-up<select id="lPhoto"><option value="1">Required</option><option value="0">Not needed</option></select></label>
         <button class="btn btn-small" id="limBtn" type="button" style="margin-top:10px;width:100%">Save limits</button>
         <div class="msg" id="limMsg" style="margin-top:6px">Blank = no limit. Change any time, even live.</div>
         <details style="margin-top:6px"><summary class="muted" style="font-size:13px;cursor:pointer">What happens when a limit is full?</summary>
@@ -842,12 +845,12 @@
     go('vEvent');
   }
 
-  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal', 'nG11L', 'nG11O'].forEach(function (i) { $(i).value = ''; }); go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
+  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal', 'nG11L', 'nG11O'].forEach(function (i) { $(i).value = ''; }); $('nPhoto').value = '1'; go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
   $('createBtn').onclick = function () {
     var name = $('nName').value.trim();
     if (!name) { $('newMsg').textContent = 'Give the event a name first.'; return; }
     $('createBtn').disabled = true; $('newMsg').textContent = 'Creating…';
-    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim(), g11Lfigp: $('nG11L').value.trim(), g11Other: $('nG11O').value.trim() })
+    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim(), g11Lfigp: $('nG11L').value.trim(), g11Other: $('nG11O').value.trim(), photo: $('nPhoto').value })
       .then(function (r) {
         $('createBtn').disabled = false;
         if (!r.ok) { $('newMsg').textContent = r.error; return; }
@@ -880,6 +883,7 @@
     if (cur && !nl(cur.boysLimit)) parts.push('Boys ' + cur.boysLimit); if (cur && !nl(cur.girlsLimit)) parts.push('Girls ' + cur.girlsLimit);
     if (cur && !nl(tl)) parts.push('Total ' + tl);
     if (cur && (!nl(cur.g11Lfigp) || !nl(cur.g11Other))) parts.push('G11 ' + (nl(cur.g11Lfigp) ? '–' : cur.g11Lfigp) + '/' + (nl(cur.g11Other) ? '–' : cur.g11Other));
+    if (cur && cur.photo === false) parts.push('no selfie');
     $('limSum').textContent = parts.length ? parts.join(', ') : 'No limits';
   }
   function renderEventHeader() {
@@ -890,6 +894,7 @@
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
+    $('lPhoto').value = cur.photo === false ? '0' : '1';
     $('lG11L').value = cur.g11Lfigp === undefined ? '' : cur.g11Lfigp; $('lG11O').value = cur.g11Other === undefined ? '' : cur.g11Other;
     setStats(cur.stats || { signedUp: 0, checkedIn: 0, paid: 0 });
     $('gLink').value = cur.groupLink || '';
@@ -941,9 +946,9 @@
     if (!cur) return;
     var b = $('lBoys').value.trim(), g = $('lGirls').value.trim(), t = $('lTotal').value.trim(), gl = $('lG11L').value.trim(), go11 = $('lG11O').value.trim();
     $('limMsg').textContent = 'Saving…';
-    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11 }).then(function (r) {
+    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11, photo: $('lPhoto').value }).then(function (r) {
       if (!r.ok) { $('limMsg').textContent = r.error || 'Could not save.'; return; }
-      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; setStats(cur.stats);
+      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; cur.photo = r.event.photo; setStats(cur.stats);
       $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ', Girls: ' + (g || 'no limit') + ', Total: ' + (t || 'no limit') + ', G11 LFIGP: ' + (gl || 'no limit') + ', G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
@@ -1263,7 +1268,7 @@
   }
   // Background double-check of what the screen shows. Also writes refusals in the scan log.
   function verify(code, shown) {
-    var g0 = pendingGuest, needPhoto = shown === 'confirm' && g0 && !bp(g0.id);
+    var g0 = pendingGuest, needPhoto = shown === 'confirm' && g0 && !bp(g0.id) && cur.photo !== false;
     api('scan', { event: cur.id, code: code, peek: 1, nophoto: needPhoto ? 0 : 1, why: shown === 'confirm' ? 0 : 1 }).then(function (r) {
       if (!r || !r.ok || pendingCode !== code) return;
       if (r.photo && r.id) {
@@ -1295,7 +1300,7 @@
     scanPhoto = bp(g.id) || g.thumb || '';
     var what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
     buzz(60);
-    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : 'Loading their photo…', null);
+    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : cur.photo === false ? 'No photo for this event. Ask their name' + (g.check ? ' and check their ID: ' + g.check : '') : 'Loading their photo…', null);
     showConfirm(true);
   }
   // Step 2: Let in = shown at once; Google records it in the background.
