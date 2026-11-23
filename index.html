@@ -360,9 +360,9 @@
   // Live ticket (link from their email): the QR only shows while unused. After the scan it turns black for good.
   var TKT = (new URLSearchParams(location.search).get('t') || '').trim().toUpperCase(), pollT = null;
   function renderTicket(r) {
-    r.words = '';   // tickets are QR codes
-    // The QR always stays on screen (no black-out); a used or cancelled code is simply refused at the door.
-    var note = r.state === 'used' ? 'Checked in' + (r.time ? ' at ' + r.time : '') + '. This QR code no longer works.' :
+    // The event decides: a QR code, or 3 words (the server only sends words for words events).
+    // The ticket always stays on screen (no black-out); a used or cancelled one is simply refused at the door.
+    var note = r.state === 'used' ? 'Checked in' + (r.time ? ' at ' + r.time : '') + (r.words ? '. These words no longer work.' : '. This QR code no longer works.') :
       r.state === 'over' ? 'This event is over.' : r.state === 'cancelled' ? (r.msg || 'This ticket was cancelled.') : '';
     if (r.state !== 'valid') { r.code = EVENT_ID.toUpperCase() + '|' + r.id; r.state = 'valid'; }
     setTimeout(function () { if (note) { $('mailHint').textContent = note; $('tTag').textContent = note.split('.')[0]; $('saveBtn').classList.add('hidden'); } }, 0);
@@ -374,7 +374,7 @@
       $('qr').className = ''; $('qr').innerHTML = ''; $('qr').setAttribute('data-code', r.code);
       $('tWords').textContent = r.words.split(' ').join('\n'); $('tWords').classList.remove('hidden');
       $('tId').textContent = ''; $('tTag').textContent = 'You\'re on the list';
-      $('mailHint').textContent = 'Show these 3 words at the door. They work once and disappear after you\'re scanned in.';
+      $('mailHint').textContent = 'Show these 3 words at the door. They work once, so keep them to yourself.';
     } else if (r.state === 'valid') {
       $('tWords').classList.add('hidden');
       if ($('qr').getAttribute('data-code') !== r.code) {
@@ -383,7 +383,7 @@
         $('qr').setAttribute('data-code', r.code);
       }
       $('tId').textContent = r.id; $('tTag').textContent = 'You\'re on the list';
-      $('mailHint').textContent = 'Show this QR code at the door. It works once and disappears after you\'re scanned in.';
+      $('mailHint').textContent = 'Show this QR code at the door. It works once, so don\'t share it.';
     } else {
       $('qr').innerHTML = ''; $('qr').removeAttribute('data-code'); $('qr').className = 'qr-dead'; $('tId').textContent = '';
       $('tWords').textContent = ''; $('tWords').classList.add('hidden');
@@ -643,14 +643,14 @@
         return;
       }
       $('tName').textContent = res.name; $('tGrade').textContent = res.grade; $('tId').textContent = res.id;
-      ticket = { name: res.name, grade: res.grade, id: res.id, code: res.code, words: '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
-      $('mailHint').textContent = 'We also emailed you this QR code. Show it at the door. It works once and disappears after you\'re scanned in.';
+      ticket = { name: res.name, grade: res.grade, id: res.id, code: res.code, words: res.words || '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
+      $('mailHint').textContent = 'We also emailed you this QR code. Show it at the door. It works once, so don\'t share it.';
       $('tTag').textContent = 'You\'re on the list'; $('qr').className = '';
       $('qr').innerHTML = '';
-      res.words = ''; $('saveBtn').classList.remove('hidden'); $('saveBtn').textContent = 'Save to Photos';
+      $('saveBtn').classList.remove('hidden'); $('saveBtn').textContent = 'Save to Photos';
       if (res.words) {
         $('tWords').textContent = res.words.split(' ').join('\n'); $('tWords').classList.remove('hidden'); $('tId').textContent = '';
-        $('mailHint').textContent = 'We also emailed you these words. Show them at the door. They work once and disappear after you\'re scanned in.';
+        $('mailHint').textContent = 'We also emailed you a picture of these words. Show them at the door. They work once, so keep them to yourself.';
       } else {
         $('tWords').classList.add('hidden');
         new QRCode($('qr'), { text: res.code, width: 440, height: 440, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });

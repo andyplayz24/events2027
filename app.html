@@ -453,6 +453,8 @@
           <input id="nG11L" type="number" inputmode="numeric" min="0" placeholder="G11 LFIGP">
           <input id="nG11O" type="number" inputmode="numeric" min="0" placeholder="G11 other schools">
         </div></div>
+      <div class="field"><label for="nTicket">Ticket</label>
+        <select id="nTicket"><option value="qr">QR code</option><option value="words">3 random words (more discreet)</option></select></div>
       <div class="field"><label for="nPhoto">Selfie at sign-up</label>
         <select id="nPhoto"><option value="1">Required: everyone takes a photo of their face</option><option value="0">Not needed for this event</option></select></div>
       <div class="field"><label for="nStatus">Sign-ups</label>
@@ -508,6 +510,7 @@
           <label class="lim">Grade 11, LFIGP<input id="lG11L" type="number" inputmode="numeric" min="0" placeholder="–"></label>
           <label class="lim">Grade 11, others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
         </div>
+        <label class="lim" style="display:block;margin-top:8px">Ticket<select id="lTicket"><option value="qr">QR code</option><option value="words">3 random words</option></select></label>
         <label class="lim" style="display:block;margin-top:8px">Selfie at sign-up<select id="lPhoto"><option value="1">Required</option><option value="0">Not needed</option></select></label>
         <button class="btn btn-small" id="limBtn" type="button" style="margin-top:10px;width:100%">Save limits</button>
         <div class="msg" id="limMsg" style="margin-top:6px">Blank = no limit. Change any time, even live.</div>
@@ -845,12 +848,12 @@
     go('vEvent');
   }
 
-  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal', 'nG11L', 'nG11O'].forEach(function (i) { $(i).value = ''; }); $('nPhoto').value = '1'; go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
+  $('newEvBtn').onclick = function () { ['nName', 'nDate', 'nLoc', 'nPrice', 'nBoys', 'nGirls', 'nTotal', 'nG11L', 'nG11O'].forEach(function (i) { $(i).value = ''; }); $('nPhoto').value = '1'; $('nTicket').value = 'qr'; go('vNew'); setTimeout(function () { $('nName').focus(); }, 50); };
   $('createBtn').onclick = function () {
     var name = $('nName').value.trim();
     if (!name) { $('newMsg').textContent = 'Give the event a name first.'; return; }
     $('createBtn').disabled = true; $('newMsg').textContent = 'Creating…';
-    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim(), g11Lfigp: $('nG11L').value.trim(), g11Other: $('nG11O').value.trim(), photo: $('nPhoto').value })
+    api('createEvent', { name: name, date: $('nDate').value, location: $('nLoc').value.trim(), price: $('nPrice').value.trim(), status: $('nStatus').value, boysLimit: $('nBoys').value.trim(), girlsLimit: $('nGirls').value.trim(), totalLimit: $('nTotal').value.trim(), g11Lfigp: $('nG11L').value.trim(), g11Other: $('nG11O').value.trim(), photo: $('nPhoto').value, ticket: $('nTicket').value })
       .then(function (r) {
         $('createBtn').disabled = false;
         if (!r.ok) { $('newMsg').textContent = r.error; return; }
@@ -883,6 +886,7 @@
     if (cur && !nl(cur.boysLimit)) parts.push('Boys ' + cur.boysLimit); if (cur && !nl(cur.girlsLimit)) parts.push('Girls ' + cur.girlsLimit);
     if (cur && !nl(tl)) parts.push('Total ' + tl);
     if (cur && (!nl(cur.g11Lfigp) || !nl(cur.g11Other))) parts.push('G11 ' + (nl(cur.g11Lfigp) ? '–' : cur.g11Lfigp) + '/' + (nl(cur.g11Other) ? '–' : cur.g11Other));
+    if (cur && cur.ticket === 'words') parts.push('3 words');
     if (cur && cur.photo === false) parts.push('no selfie');
     $('limSum').textContent = parts.length ? parts.join(', ') : 'No limits';
   }
@@ -894,7 +898,8 @@
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
-    $('lPhoto').value = cur.photo === false ? '0' : '1';
+    $('lPhoto').value = cur.photo === false ? '0' : '1'; $('lTicket').value = cur.ticket === 'words' ? 'words' : 'qr';
+    setTicketMode();
     $('lG11L').value = cur.g11Lfigp === undefined ? '' : cur.g11Lfigp; $('lG11O').value = cur.g11Other === undefined ? '' : cur.g11Other;
     setStats(cur.stats || { signedUp: 0, checkedIn: 0, paid: 0 });
     $('gLink').value = cur.groupLink || '';
@@ -946,9 +951,9 @@
     if (!cur) return;
     var b = $('lBoys').value.trim(), g = $('lGirls').value.trim(), t = $('lTotal').value.trim(), gl = $('lG11L').value.trim(), go11 = $('lG11O').value.trim();
     $('limMsg').textContent = 'Saving…';
-    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11, photo: $('lPhoto').value }).then(function (r) {
+    api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11, photo: $('lPhoto').value, ticket: $('lTicket').value }).then(function (r) {
       if (!r.ok) { $('limMsg').textContent = r.error || 'Could not save.'; return; }
-      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; cur.photo = r.event.photo; setStats(cur.stats);
+      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; cur.photo = r.event.photo; cur.ticket = r.event.ticket; setTicketMode(); setStats(cur.stats);
       $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ', Girls: ' + (g || 'no limit') + ', Total: ' + (t || 'no limit') + ', G11 LFIGP: ' + (gl || 'no limit') + ', G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
@@ -1179,12 +1184,19 @@
     return null;
   }
   // The text reader (Tesseract, free and open source) loads once, the first time the scanner opens.
-  var WORDS_ON = false;   // tickets are QR codes; the word reader stays off
+  // Each event uses QR codes or 3 words (the admins choose). The word reader only runs for words events.
+  var WORDS_ON = false;
+  function setTicketMode() {
+    WORDS_ON = !!cur && cur.ticket === 'words';
+    $('ocrNote').textContent = WORDS_ON ? (ocr.worker ? 'Point the camera at the 3 words.' : 'Getting the word reader ready…') : 'Point the camera at the QR code.';
+    $('manual').placeholder = WORDS_ON ? 'First letters, e.g. vel ott mor' : 'T-XXXXXX';
+    // Speed: get the word reader ready as soon as a words event is opened, not at the first scan.
+    if (WORDS_ON) loadOcr().catch(function () {});
+  }
   var ocr = { loading: null, worker: null, busy: false, lastAsk: '' };
   var OCR_JS = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
   function loadOcr() {
     if (ocr.loading) return ocr.loading;
-    $('ocrNote').textContent = 'Getting the word reader ready…';
     ocr.loading = new Promise(function (ok, bad) {
       if (window.Tesseract) return ok();
       var sc = document.createElement('script'); sc.src = OCR_JS; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc);
@@ -1196,10 +1208,10 @@
       });
     }).then(function (w) {
       return w.setParameters({ tessedit_char_whitelist: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ ', tessedit_pageseg_mode: '11' }).then(function () {
-        ocr.worker = w; $('ocrNote').textContent = 'Point the camera at the 3 words (or a QR code).'; return w;
+        ocr.worker = w; if (WORDS_ON) $('ocrNote').textContent = 'Point the camera at the 3 words.'; return w;
       });
     });
-    ocr.loading.catch(function () { ocr.loading = null; $('ocrNote').textContent = 'The word reader couldn\'t load (no internet?). Type the words below instead.'; });
+    ocr.loading.catch(function () { ocr.loading = null; if (WORDS_ON) $('ocrNote').textContent = 'The word reader couldn\'t load (no internet?). Type the first letters of each word below instead.'; });
     return ocr.loading;
   }
   function frameCanvas(src, w, h) {
@@ -1225,7 +1237,7 @@
     loadOcr().then(function (w) { return w.recognize(frameCanvas(v, v.videoWidth, v.videoHeight)); })
       .then(function (res) { ocr.busy = false; useReadText(res.data.text); })
       .catch(function () { ocr.busy = false; });
-  }, 600);
+  }, 250);
   // SPEED: the phone decides instantly from its guest list (refreshed every few seconds),
   // and Google double-checks in the background. If Google ever disagrees, the screen corrects itself loudly.
   var gAt = {}, justIn = {}, justPaid = {};
@@ -1277,7 +1289,13 @@
       }
       var okNow = r.found && r.eligible && !r.alreadyCheckedIn;
       var lg = r.found ? guests.find(function (x) { return x.id === r.id; }) : null;
-      if (lg) { lg.checkedIn = !!r.alreadyCheckedIn; lg.time = r.time; lg.by = r.by; lg.removed = r.removed || ''; lg.suspicious = !!r.suspicious; lg.paid = r.paid; }
+      // An answer that left Google before this phone's own Let in / Mark as paid must not undo it here.
+      var ji = lg && justIn[lg.id], mine = !!(ji && Date.now() - ji.at < 120000);
+      if (lg) {
+        if (r.alreadyCheckedIn || !mine) { lg.checkedIn = !!r.alreadyCheckedIn; lg.time = r.time; lg.by = r.by; }
+        lg.removed = r.removed || ''; lg.suspicious = !!r.suspicious;
+        if (r.paid || !(justPaid[lg.id] && Date.now() - justPaid[lg.id] < 120000)) lg.paid = r.paid;
+      }
       if (shown === 'confirm' && !okNow && $('verdict').classList.contains('check')) {
         // Someone else scanned or removed them a moment ago: refuse.
         showConfirm(false); pendingGuest = null;

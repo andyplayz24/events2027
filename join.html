@@ -85,6 +85,7 @@
   .ph.on { border:1px solid #fff; }
   .phBtn { border-radius:8px; background:transparent; font-weight:600; }
   .wa { border-radius:8px; background:transparent; color:var(--text); border:1px solid #3a3a3a; font-weight:600; }
+  button.wa { width:100%; font:inherit; font-weight:600; cursor:pointer; }
   .tix { border-radius:10px; color:#000; }
   .tix .ev { font-stretch:125%; font-weight:700; }
   .tix .holder { text-transform:none; letter-spacing:0; font-size:13px; }
@@ -116,9 +117,9 @@
       <div>
         <div class="tag">Verified</div>
         <h1 id="okTitle">You're in, see you there</h1>
-        <p class="sub">Tap below to open the WhatsApp group and ask to join. The admins approve everyone on the list.</p>
+        <p class="sub">Opening WhatsApp. Ask to join there: the admins approve everyone on the list.</p>
       </div>
-      <a class="wa" id="go" href="#" rel="noopener">Open WhatsApp group</a>
+      <button class="wa" id="go" type="button">Open WhatsApp</button>
     </div>
 
     <div class="view" id="vNo">
@@ -159,8 +160,10 @@
         $('btn').disabled = false; $('btn').textContent = 'Open the WhatsApp group';
         if (r && r.ok && /^https:\/\/chat\.whatsapp\.com\//.test(r.link)) {
           $('okTitle').textContent = 'You\'re verified, ' + String(r.name || '').split(' ')[0] + '!';
-          $('go').href = r.link; show('vOk');
-          setTimeout(function () { location.href = r.link; }, 900);
+          // The group link is never shown on the page (nothing to copy or long-press): the phone is handed straight to WhatsApp.
+          var open = function () { location.replace(r.link); };
+          $('go').onclick = open; show('vOk');
+          setTimeout(open, 900);
           return;
         }
         if (r && /match/i.test(r.error || '')) { err.textContent = r.error; return; }
