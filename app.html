@@ -516,7 +516,7 @@
       <div class="field"><label for="nTicket">Ticket</label>
         <select id="nTicket"><option value="qr">QR code</option><option value="words">3 random words (more discreet)</option></select></div>
       <div class="field"><label for="nPhoto">Selfie at sign-up</label>
-        <select id="nPhoto"><option value="1">Required: everyone takes a photo of their face</option><option value="0">Not needed for this event</option></select></div>
+        <select id="nPhoto"><option value="1">Required: everyone adds a photo of their face</option><option value="opt">Optional: each guest chooses</option><option value="0">Not asked for this event</option></select></div>
       <div class="field"><label for="nStatus">Sign-ups</label>
         <select id="nStatus"><option value="Open">Open now</option><option value="Planned">Not yet (planned)</option></select></div>
       <button class="btn btn-pink" id="createBtn">Create event</button>
@@ -572,7 +572,7 @@
           <label class="lim">Grade 11, others<input id="lG11O" type="number" inputmode="numeric" min="0" placeholder="–"></label>
         </div>
         <label class="lim" style="display:block;margin-top:8px">Ticket<select id="lTicket"><option value="qr">QR code</option><option value="words">3 random words</option></select></label>
-        <label class="lim" style="display:block;margin-top:8px">Selfie at sign-up<select id="lPhoto"><option value="1">Required</option><option value="0">Not needed</option></select></label>
+        <label class="lim" style="display:block;margin-top:8px">Selfie at sign-up<select id="lPhoto"><option value="1">Required</option><option value="opt">Optional</option><option value="0">Not asked</option></select></label>
         <button class="btn btn-small" id="limBtn" type="button" style="margin-top:10px;width:100%">Save limits</button>
         <div class="msg" id="limMsg" style="margin-top:6px">Blank = no limit. Change any time, even live.</div>
         <details style="margin-top:6px"><summary class="muted" style="font-size:13px;cursor:pointer">What happens when a limit is full?</summary>
@@ -1005,7 +1005,7 @@
     if (cur && !nl(tl)) parts.push('Total ' + tl);
     if (cur && (!nl(cur.g11Lfigp) || !nl(cur.g11Other))) parts.push('G11 ' + (nl(cur.g11Lfigp) ? '–' : cur.g11Lfigp) + '/' + (nl(cur.g11Other) ? '–' : cur.g11Other));
     if (cur && cur.ticket === 'words') parts.push('3 words');
-    if (cur && cur.photo === false) parts.push('no selfie');
+    if (cur && cur.photo === false) parts.push('no selfie'); else if (cur && cur.photoMode === 'optional') parts.push('selfie optional');
     $('limSum').textContent = parts.length ? parts.join(', ') : 'No limits';
   }
   function renderEventHeader() {
@@ -1017,7 +1017,7 @@
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
-    $('lPhoto').value = cur.photo === false ? '0' : '1'; $('lTicket').value = cur.ticket === 'words' ? 'words' : 'qr';
+    $('lPhoto').value = cur.photo === false ? '0' : cur.photoMode === 'optional' ? 'opt' : '1'; $('lTicket').value = cur.ticket === 'words' ? 'words' : 'qr';
     setTicketMode();
     $('lG11L').value = cur.g11Lfigp === undefined ? '' : cur.g11Lfigp; $('lG11O').value = cur.g11Other === undefined ? '' : cur.g11Other;
     setStats(cur.stats || { signedUp: 0, checkedIn: 0, paid: 0 });
@@ -1072,7 +1072,7 @@
     $('limMsg').textContent = 'Saving…';
     api('updateEvent', { event: cur.id, boysLimit: b, girlsLimit: g, totalLimit: t, g11Lfigp: gl, g11Other: go11, photo: $('lPhoto').value, ticket: $('lTicket').value }).then(function (r) {
       if (!r.ok) { $('limMsg').textContent = r.error || 'Could not save.'; return; }
-      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; cur.photo = r.event.photo; cur.ticket = r.event.ticket; setTicketMode(); setStats(cur.stats);
+      cur.boysLimit = r.event.boysLimit; cur.girlsLimit = r.event.girlsLimit; cur.totalLimit = r.event.totalLimit; cur.g11Lfigp = r.event.g11Lfigp; cur.g11Other = r.event.g11Other; cur.photo = r.event.photo; cur.photoMode = r.event.photoMode; cur.ticket = r.event.ticket; setTicketMode(); setStats(cur.stats);
       $('limMsg').textContent = 'Saved. Boys: ' + (b || 'no limit') + ', Girls: ' + (g || 'no limit') + ', Total: ' + (t || 'no limit') + ', G11 LFIGP: ' + (gl || 'no limit') + ', G11 other: ' + (go11 || 'no limit') + '.';
     }).catch(function () { $('limMsg').textContent = 'No connection. Try again.'; });
   };
@@ -1407,6 +1407,9 @@
     var g0 = pendingGuest, needPhoto = shown === 'confirm' && g0 && !bp(g0.id) && cur.photo !== false;
     api('scan', { event: cur.id, code: code, peek: 1, nophoto: needPhoto ? 0 : 1, why: shown === 'confirm' ? 0 : 1 }).then(function (r) {
       if (!r || !r.ok || pendingCode !== code) return;
+      // Optional selfie: this guest did not add one. Say so instead of waiting for a photo that does not exist.
+      if (needPhoto && r.found && !r.photo && !scanPhoto && pendingGuest && pendingGuest.id === r.id && $('verdict').classList.contains('check'))
+        $('vMeta').textContent = 'They did not add a photo. Ask their name' + (r.check ? ' and check their ID: ' + r.check : ' and school');
       if (r.photo && r.id) {
         bigPhotos[cur.id + ':' + r.id] = r.photo;
         if (pendingGuest && pendingGuest.id === r.id && $('verdict').classList.contains('check')) { scanPhoto = r.photo; $('vPhoto').src = r.photo; $('vPhoto').classList.remove('hidden'); $('vMeta').textContent = r.check ? 'Check their ID too: ' + r.check : 'Compare the photo with their face'; }
@@ -1435,6 +1438,7 @@
       }
     }).catch(function () {
       // No internet: keep the refusal for the scan log, to be sent when back online. (A let-in is queued by Let in itself.)
+      if (shown === 'confirm' && !scanPhoto && $('verdict').classList.contains('check') && cur.photo !== false) $('vMeta').textContent = 'No photo saved on this phone. Ask their name and school';
       if (shown !== 'confirm') enqueue('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 });
     });
   }
@@ -1445,7 +1449,7 @@
     scanPhoto = bp(g.id) || g.thumb || '';
     var what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
     buzz(60);
-    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : cur.photo === false ? 'No photo for this event. Ask their name' + (g.check ? ' and check their ID: ' + g.check : '') : 'Loading their photo…', null);
+    verdict('check', 'Is this them?', g.name, what, scanPhoto ? (g.check ? 'Check their ID too: ' + g.check : 'Compare the photo with their face') : cur.photo === false ? 'No photo for this event. Ask their name' + (g.check ? ' and check their ID: ' + g.check : '') : cur.photoMode === 'optional' ? 'Looking for their photo…' : 'Loading their photo…', null);
     showConfirm(true);
   }
   // Step 2: Let in = shown at once; Google records it in the background.

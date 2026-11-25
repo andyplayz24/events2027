@@ -154,6 +154,9 @@
   #vTicket .hint { text-align:left; font-size:14px; }
   #tTag { text-align:left !important; }
   select { padding-left:10px; }
+  .phBtns { flex:1; display:flex; flex-direction:column; gap:8px; min-width:0; }
+  .phBtns .phBtn { flex:none; padding:13px 12px; }
+  .phLink { background:none; border:0; padding:4px 0; color:var(--muted); font-size:13px; font-weight:500; text-decoration:underline; text-align:left; width:auto; }
 
 
   /* ---- Motion. One arrival sequence per page, the ticket reveal, and feedback for what the person just did.
@@ -281,11 +284,16 @@
           <label for="photo">Photo of your face</label>
           <div class="photoRow">
             <div class="ph" id="phPrev">No photo yet</div>
-            <label class="phBtn" for="photo" id="phLabel">Take a selfie</label>
+            <div class="phBtns">
+              <label class="phBtn" for="photo" id="phLabel">Take a selfie</label>
+              <label class="phBtn" for="photoLib" id="phLib">Choose from your photos</label>
+              <button class="phLink hidden" type="button" id="phRemove">Remove photo</button>
+            </div>
           </div>
           <input id="photo" type="file" accept="image/*" capture="user" hidden>
-          <div class="hint">Required. It's shown at the door so we know it's really you: face clearly visible, no filters or sunglasses.</div>
-          <div class="hint rule">No face, the ceiling, a black or a blurry photo: 1 warning. The second time, this phone, your name, email and number are blocked.</div>
+          <input id="photoLib" type="file" accept="image/*" hidden>
+          <div class="hint" id="phHint">Required. It's shown at the door so we know it's really you: face clearly visible, no filters or sunglasses.</div>
+          <div class="hint rule" id="phRule">No face, the ceiling, a black or a blurry photo: 1 warning. The second time, this phone, your name, email and number are blocked.</div>
         </div>
         <button id="btn" type="submit">Get my ticket</button>
         <div class="err" id="err" role="alert"></div>
@@ -576,7 +584,14 @@
       var ev = r.event;
       document.title = ev.name;
       // Some events don't ask for a selfie (the organisers choose per event).
-      NEED_PHOTO = ev.photo !== false; $('photoField').classList.toggle('hidden', !NEED_PHOTO);
+      // The organisers choose per event: a photo is required, optional (the guest decides), or not asked at all.
+      PHOTO_MODE = ev.photo === false ? 'off' : ev.photoMode === 'optional' ? 'optional' : 'required';
+      SHOW_PHOTO = PHOTO_MODE !== 'off'; NEED_PHOTO = PHOTO_MODE === 'required';
+      $('photoField').classList.toggle('hidden', !SHOW_PHOTO);
+      $('photoField').querySelector('label').textContent = NEED_PHOTO ? 'Photo of your face' : 'Photo of your face (recommended)';
+      $('phHint').textContent = NEED_PHOTO ? 'Required. It\'s shown at the door so we know it\'s really you: face clearly visible, no filters or sunglasses.'
+        : 'Optional, but recommended: with a photo we recognise you straight away and you get in faster. Without one, expect a few questions at the door.';
+      $('phRule').classList.toggle('hidden', !NEED_PHOTO);
       fill('evName', ev.name);
       fill('evMeta', ev.date || 'Sign up to get your QR ticket.');
       document.querySelector('#vTicket .evMeta').textContent = ev.date || '';
@@ -688,20 +703,23 @@
     }, function () { return 'skip'; }).catch(function () { return 'skip'; });
   }
   function photoReset(label) {
-    PHOTO = ''; THUMB = ''; $('photo').value = '';
+    PHOTO = ''; THUMB = ''; $('photo').value = ''; $('photoLib').value = '';
     $('phPrev').style.backgroundImage = ''; $('phPrev').classList.remove('on'); $('phLabel').textContent = label || 'Take a selfie';
+    $('phRemove').classList.add('hidden');
   }
   $('saveBtn').onclick = saveTicket;
-  $('photo').addEventListener('click', function (e) {
+  $('phRemove').onclick = function () { photoReset(); $('err').textContent = ''; };
+  var guardPick = function (e) {
     var miss = !$('name').value.trim() ? 'name' : !/@/.test($('email').value) ? 'email' : $('phone').value.replace(/\D/g, '').length < 7 ? 'phone' : '';
     if (miss) {
       e.preventDefault();
-      $('err').textContent = 'Fill in your name, email and WhatsApp number first, then take your selfie.';
+      $('err').textContent = 'Fill in your name, email and WhatsApp number first, then add your photo.';
       $(miss).focus();
     }
-  });
+  };
+  $('photo').addEventListener('click', guardPick); $('photoLib').addEventListener('click', guardPick);
   var checking = null;
-  $('photo').onchange = function () {
+  var onPick = function () {
     var f = this.files && this.files[0];
     if (!f) return;
     var done, mine = new Promise(function (r) { done = r; }); checking = mine;
@@ -714,10 +732,12 @@
         URL.revokeObjectURL(url);
         if (checking !== mine) { done(); return; }   // they already picked a newer photo
         setTimeout(finish, 0);
-        if (problem === 'small') { photoReset('Retake photo'); $('err').textContent = 'Your face is too small or too far. Take a closer selfie so your face fills the circle.'; return; }
+        if (problem === 'small') { photoReset('Retake photo'); $('err').textContent = 'Your face is too small or too far. Use a closer photo so your face fills the circle.' + (NEED_PHOTO ? '' : ' Or continue without a photo.'); return; }
         if (problem === 'dark' || problem === 'blank' || problem === 'noface' || problem === 'blurry') {
           photoReset('Retake photo');
           var why = problem === 'noface' ? 'No face found' : problem === 'blurry' ? 'Too blurry' : (problem === 'dark' ? 'Black / too dark' : 'Blank photo');
+          // Optional photo: nothing is counted against them. They pick another one or go on without.
+          if (!NEED_PHOTO) { $('err').textContent = 'That photo can\'t be used (' + why.toLowerCase() + '). Pick one that clearly shows your face, or continue without a photo.'; return; }
           call({ action: 'badPhoto', event: EVENT_ID, device: DEVICE, problem: why, name: $('name').value.trim(), email: $('email').value.trim(),
                  phone: $('phone').value.trim(), grade: $('grade').value }).then(function (r) {
             if (r && r.blocked) { showBlocked({ name: $('name').value.trim(), email: $('email').value.trim(), grade: $('grade').value, phone: $('phone').value.trim(), why: r.why || 'photo' }); return; }
@@ -731,14 +751,15 @@
           if (PHOTO.length > 68000) PHOTO = shrink(img, 280, 0.6);
           THUMB = shrink(img, 72, 0.6);
           $('phPrev').style.backgroundImage = 'url(' + PHOTO + ')'; $('phPrev').classList.add('on');
-          $('phLabel').textContent = 'Retake photo';
+          $('phLabel').textContent = 'Retake photo'; $('phRemove').classList.toggle('hidden', NEED_PHOTO);
         } catch (e) { photoReset(); $('err').textContent = 'That photo didn\'t work. Try again.'; }
       });
     };
-    img.onerror = function () { finish(); $('phLabel').textContent = 'Take a selfie'; $('err').textContent = 'That photo didn\'t work. Try again with your camera.'; };
+    img.onerror = function () { finish(); $('phLabel').textContent = 'Take a selfie'; $('err').textContent = 'That photo didn\'t work. Try another one.'; };
     img.src = url;
   };
-  var NEED_PHOTO = true;
+  $('photo').onchange = onPick; $('photoLib').onchange = onPick;
+  var NEED_PHOTO = true, SHOW_PHOTO = true, PHOTO_MODE = 'required';
   $('f').addEventListener('submit', function (e) {
     e.preventDefault();
     var name = $('name').value.trim(), email = $('email').value.trim(), grade = $('grade').value, phone = $('phone').value.trim(), gender = $('gender').value,
@@ -768,15 +789,15 @@
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email address.'; return; }
     var btn = $('btn');
-    if (NEED_PHOTO && checking) {
+    if (SHOW_PHOTO && checking) {
       // Still checking their selfie: wait, then carry on by itself if the photo was fine.
       btn.disabled = true; btn.textContent = 'Checking your photo…';
       checking.then(function () { btn.disabled = false; btn.textContent = 'Get my ticket'; if (PHOTO) btn.click(); });
       return;
     }
-    if (NEED_PHOTO && !PHOTO) { err.textContent = 'Add a photo of your face (tap Take a selfie).'; return; }
+    if (NEED_PHOTO && !PHOTO) { err.textContent = 'Add a photo of your face: tap Take a selfie or Choose from your photos.'; return; }
     btn.disabled = true; btn.textContent = 'Getting your ticket…';
-    call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: NEED_PHOTO ? PHOTO : '', thumb: NEED_PHOTO ? THUMB : '', device: DEVICE }).then(function (res) {
+    call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: SHOW_PHOTO ? PHOTO : '', thumb: SHOW_PHOTO ? THUMB : '', device: DEVICE }).then(function (res) {
       if (res && res.fullyBooked) { store.set(FB, '1'); $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
       if (res && res.full) { $('closedMsg').textContent = res.error; show('vClosed'); return; }
       if (res && res.waitlist) {
