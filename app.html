@@ -1060,6 +1060,7 @@
       return '<div class="guest" data-g="' + esc(g.id) + '">' + (g.thumb ? '<img class="av" alt="" src="' + esc(g.thumb) + '">' : '<div class="av" style="background:' + avColor(g.id) + '">' + esc(initials(g.name).toUpperCase()) + '</div>') +
         '<div class="g"><div class="gn">' + esc(g.name) + (g.removed ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">' + (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') + '</span>' : (g.suspicious ? ' <span style="color:var(--red,#ff5a6a);font-weight:800">Suspicious</span>' : (g.check ? ' <span style="color:var(--sun,#ffc24b);font-weight:800">Check ID</span>' : ''))) + '</div><div class="gs"><span>Grade ' + esc(g.grade) + (g.school ? ', ' + esc(g.school) : '') + '</span>' +
         (g.checkedIn ? '<span class="in">In at ' + esc(String(g.time).replace(/^.*, /, '')) + (g.by ? ' by ' + esc(g.by) : '') + '</span>' : '<span>Not in yet</span>') +
+        ((g.removed || g.suspicious) && g.reason ? '<span style="color:var(--red,#e5484d);flex-basis:100%">' + esc(g.reason) + '</span>' : '') +
         '</div></div><button class="pay' + (g.paid ? ' yes' : '') + '" data-t="' + esc(g.id) + '">' + (g.paid ? 'Paid' : 'Not paid') + '</button></div>';
     }).join('') || '<div class="empty">No one matches that.</div>';
     Array.prototype.forEach.call($('gList').querySelectorAll('.pay'), function (b) {
@@ -1354,7 +1355,7 @@
       var ji = lg && justIn[lg.id], mine = !!(ji && Date.now() - ji.at < 120000);
       if (lg) {
         if (r.alreadyCheckedIn || !mine) { lg.checkedIn = !!r.alreadyCheckedIn; lg.time = r.time; lg.by = r.by; }
-        lg.removed = r.removed || ''; lg.suspicious = !!r.suspicious;
+        lg.removed = r.removed || ''; lg.suspicious = !!r.suspicious; if (r.reason !== undefined) lg.reason = r.reason;
         if (r.paid || !(justPaid[lg.id] && Date.now() - justPaid[lg.id] < 120000)) lg.paid = r.paid;
       }
       if (shown === 'confirm' && !okNow && $('verdict').classList.contains('check')) {
@@ -1426,8 +1427,8 @@
   }
   function showRefusal(r, late) {
     var who = r.name, pre = late ? 'STOP: ' : '';
-    if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + (r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed'), who, r.removed === 'ban' ? 'Banned by the organisers. Do not let in.' : r.removed === 'full' ? 'Their spot was cancelled (event too full). Do not let in.' : 'Taken off the list for this event. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
-    if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + 'Suspicious', who, (r.reason || 'Matches the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+    if (r.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + (r.removed === 'ban' ? 'Banned' : r.removed === 'full' ? 'Cancelled' : 'Removed'), who, (r.reason || (r.removed === 'ban' ? 'Banned by an admin' : r.removed === 'full' ? 'Ticket cancelled because the event got too full' : 'Kicked from this event by an admin')) + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
+    if (r.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + 'Suspicious', who, (r.reason || 'Linked to someone on the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + r.id, null); }
     if (!r.eligible) { buzz([200, 100, 200]); return verdict('bad', pre + 'Bounced', who, 'Grade ' + r.grade + '. Only grades 11 and 12 can come in.', r.id, null); }
     if (r.alreadyCheckedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', pre + 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + (r.time || '') + (r.by ? ', scanned by ' + r.by : ''), null); }
     if (!r.found && late) { buzz([200, 100, 200]); return verdict('bad', 'STOP: Not on the list', 'This ticket is not in this event', '', '', null); }
@@ -1446,8 +1447,8 @@
     scanPhoto = (g && g.thumb) || '';
     if (!g) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'Not in the saved guest list', 'Offline: if they signed up very recently, check again once online.', '', null); }
     var who = g.name, what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
-    if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : 'Removed', who, 'Taken off the list. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
-    if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, 'Matches the Blocked list. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
+    if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled' : 'Removed', who, (g.reason || 'Taken off the list') + '. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
+    if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (g.reason || 'Linked to someone on the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
     if ([11, 12].indexOf(Number(g.grade)) < 0) { buzz([200, 100, 200]); return verdict('bad', 'Bounced', who, 'Only grades 11 & 12 allowed', g.id, null); }
     if (g.checkedIn) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Already used: fake copy', who, 'This QR was already scanned. Whoever has it now is using a copied or shared ticket. Do NOT let in.', 'Used ' + g.time + (g.by ? ', scanned by ' + g.by : ''), null); }
     g.checkedIn = true; g.time = 'offline'; g.by = cfg.me; jset('bq_g_' + cur.id, guests); localStats();
@@ -1507,11 +1508,7 @@
     if (!g) return;
     $('gmName').textContent = g.name;
     $('gmPhoto').src = g.thumb || ''; $('gmPhoto').style.visibility = g.thumb ? 'visible' : 'hidden';
-    var rows = [['Ticket', g.id], ['Grade', g.grade], ['School', g.school || '–'], ['Gender', g.gender || '–'], ['WhatsApp', g.phone || '–'],
-      ['Email', g.email || '–'], ['Signed up', g.signedUp || '–'], ['Paid', g.paid ? 'Yes' : 'No'],
-      ['Checked in', g.checkedIn ? ('Yes, ' + (g.time || '') + (g.by ? ' by ' + g.by : '')) : 'Not yet'],
-      ['Status', g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : (g.suspicious ? 'Suspicious' : (g.check ? 'Check ID' : 'OK'))]];
-    $('gmInfo').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('');
+    gmRows(g);
     $('gModal').classList.remove('hidden');
     gmCur = id; $('gmMsg').textContent = ''; $('gmInMsg').textContent = '';
     $('gmLetIn').classList.toggle('hidden', !!(g.checkedIn || g.removed)); $('gmLetIn').textContent = 'Let in without code'; $('gmLetIn').disabled = false; $('gmLetIn').classList.remove('armed');
@@ -1539,16 +1536,27 @@
       api('removeGuest', { event: cur.id, ticket: id, how: how2 }).then(function (r) {
         b.disabled = false; b.classList.remove('armed');
         if (!r.ok) { $('gmMsg').textContent = r.error || 'Could not save.'; return; }
-        var g = guests.find(function (x) { return x.id === id; }); if (g) g.removed = r.removed || '';
+        var g = guests.find(function (x) { return x.id === id; });
+        if (g) { g.removed = r.removed || ''; g.reason = g.removed === 'ban' ? 'Banned by an admin' : g.removed === 'full' ? 'Ticket cancelled because the event got too full' : g.removed === 'kick' ? 'Kicked from this event by an admin' : ''; }
         setStats(r.stats); renderGuests(); renderSchools();
         $('gmMsg').textContent = how2 === 'full' ? 'Done. Their ticket is cancelled and they were emailed.' : how2 === 'kick' ? 'Done. Kicked for this event.' : how2 === 'ban' ? 'Done. Banned and added to the Blocked tab.' : 'Done. They are back on the list.';
         openGuestInfo(id);
       }).catch(function () { b.disabled = false; $('gmMsg').textContent = 'No connection. Try again.'; });
     };
   });
+  // The profile's details. Status is followed by the reason whenever someone is removed, suspicious or needs an ID check.
+  function gmRows(g) {
+    var status = g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : (g.suspicious ? 'Suspicious' : (g.check ? 'Check ID' : 'OK'));
+    var rows = [['Ticket', g.id], ['Grade', g.grade], ['School', g.school || '–'], ['Gender', g.gender || '–'], ['WhatsApp', g.phone || '–'],
+      ['Email', g.email || '–'], ['Signed up', g.signedUp || '–'], ['Paid', g.paid ? 'Yes' : 'No'],
+      ['Checked in', g.checkedIn ? ('Yes, ' + (g.time || '') + (g.by ? ' by ' + g.by : '')) : 'Not yet'],
+      ['Status', status]];
+    if (status !== 'OK' && g.reason) rows.push(['Why', g.reason]);
+    $('gmInfo').innerHTML = rows.map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd' + (r[0] === 'Why' ? ' style="color:var(--red,#e5484d);font-weight:600"' : '') + '>' + esc(r[1]) + '</dd>'; }).join('');
+  }
   function openGuestInfo(id) {
     var g = guests.find(function (x) { return x.id === id; }); if (!g) return;
-    var dd = $('gmInfo').querySelectorAll('dd'); if (dd.length) dd[dd.length - 1].textContent = g.removed ? (g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled (too full)' : 'Removed') : 'OK';
+    gmRows(g);
   }
   // Schools: how many boys and girls signed up from each school (people removed don't count).
   function renderSchools() {
