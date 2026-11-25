@@ -6,7 +6,7 @@
 (function () {
   var BACK = /back|rear|environment|facing back|arri[eè]re|trasera|hinten|posteriore|خلف/i;
   var NOT_MAIN = /ultra|wide|tele|dual|triple|macro|depth|zoom|infrared|\bir\b|0[.,]5|\b2x\b|\b3x\b|\b5x\b|فائق|مقرب|مزدوج|ثلاثي/i;
-  var JSQR = 'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js';
+  var JSQR = new URL('jsQR.min.js', location.href).href;   // hosted with the app: no outside site is needed to scan
 
   var st = {
     stream: null, video: null, onCode: null, onStatus: null,

@@ -1,13 +1,11 @@
 // Bouncer offline support + automatic updates.
 // Our own files: shown instantly from the saved copy, updated in the background (works offline too).
 // Libraries from other sites: use the saved copy (they never change), refresh it in the background.
-const CACHE = 'bouncer-v37';
+const CACHE = 'bouncer-v38';
 const SHELL = [
   'app.html', 'index.html', 'join.html', 'camtest.html', 'scanner.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'archivo.woff2',
-  'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js',
-  'https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js'
+  'html5-qrcode.min.js', 'jsQR.min.js', 'qrcode.min.js'
 ];
 
 self.addEventListener('install', e => {
