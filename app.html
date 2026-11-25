@@ -389,6 +389,32 @@
   .seg button.on { color:var(--text); }
   .cam-idle .cam-ico { background:var(--gold); color:#0d0a04; }
   .verdict.check { background:var(--text); }
+
+  /* ---- Motion: short and only where it tells staff something. Screens ease in, results land with a pop (a refusal shakes),
+     sheets slide up. Nothing waits on an animation, so scanning is exactly as fast as before. ---- */
+  .btn, .chip, .seg button, .icon-btn, .pay, input, select { transition:transform .09s ease, background-color .15s ease, border-color .15s ease, color .15s ease; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes viewIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:none; } }
+    @keyframes vOk { 0% { transform:scale(.93); opacity:.3; } 65% { transform:scale(1.015); opacity:1; } 100% { transform:none; } }
+    @keyframes vWarn { 0% { transform:scale(.95); opacity:.3; } 100% { transform:none; opacity:1; } }
+    @keyframes vBad { 0% { transform:translateX(0); opacity:.4; } 20% { transform:translateX(-9px); opacity:1; } 45% { transform:translateX(8px); } 70% { transform:translateX(-5px); } 100% { transform:none; } }
+    @keyframes vCheck { from { transform:translateY(12px); opacity:.3; } to { transform:none; opacity:1; } }
+    @keyframes sheetUp { from { transform:translateY(40px); opacity:0; } to { transform:none; opacity:1; } }
+    @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+    @keyframes foldIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:none; } }
+    #vSettings, #vEvents, #vNew, #vEvent, #vScan, #vShare { animation:viewIn .18s cubic-bezier(.2,.8,.2,1); }
+    .verdict.ok { animation:vOk .2s cubic-bezier(.2,.8,.2,1); }
+    .verdict.warn { animation:vWarn .18s ease-out; }
+    .verdict.bad { animation:vBad .3s ease-out; }
+    .verdict.check { animation:vCheck .16s ease-out; }
+    .verdict.wait { animation:fadeIn .15s ease; }
+    .vphoto:not(.hidden) { animation:fadeIn .2s ease; }
+    #lateWarn:not(.hidden) { animation:vBad .34s ease-out; }
+    .gmodal:not(.hidden) { animation:fadeIn .16s ease; }
+    .gmodal:not(.hidden) .gcard { animation:sheetUp .24s cubic-bezier(.2,.8,.2,1); }
+    details.fold[open] > .fbody { animation:foldIn .18s ease-out; }
+    .btn:active, .chip:active, .icon-btn:active, .pay:active, .seg button:active { transform:scale(.975); }
+  }
 </style>
 </head>
 <body>

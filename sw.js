@@ -1,7 +1,7 @@
 // Bouncer offline support + automatic updates.
 // Our own files: shown instantly from the saved copy, updated in the background (works offline too).
 // Libraries from other sites: use the saved copy (they never change), refresh it in the background.
-const CACHE = 'bouncer-v32';
+const CACHE = 'bouncer-v33';
 const SHELL = [
   'app.html', 'index.html', 'join.html', 'camtest.html', 'scanner.js', 'manifest.webmanifest',
   'icon-192.png', 'icon-512.png', 'apple-touch-icon.png', 'archivo.woff2',
