@@ -365,6 +365,30 @@
   details.fold > summary > span:first-child { white-space:nowrap; }
   .av { font-stretch:100%; }
   .del-btn { background:transparent; border:0; }
+
+  /* ---- Premium pass (matches the guest pages): warm ivory on true black, champagne only for the main action,
+     focus and progress. Door colours keep their meaning: green = let in, amber = check or collect, red = refuse. ---- */
+  :root {
+    --text:#f4efe6; --muted:#9c9487; --faint:#6a6459; --line:#27231c;
+    --gold:#d8c08e; --gold2:#b99d63;
+    --s1:#0c0b09; --s2:#15130f; --s3:#201d17; --edge:#231f19;
+  }
+  h2, .brand .word, .brand .crumb, .ticket .t-name, .unlock h2, .gcard h3, .empty b { font-stretch:118%; font-weight:700; letter-spacing:-.02em; }
+  .btn { border-radius:8px; }
+  .btn-small { border-radius:8px; }
+  .btn-pink { background:var(--gold); color:#0d0a04; }
+  .btn-pink:active { background:var(--gold2); }
+  .btn-ghost { border-color:#3a342a; }
+  input, select { background:var(--s1); border-color:#2f2a22; border-radius:8px; }
+  input:focus, select:focus { border-color:var(--gold); }
+  button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline:2px solid var(--gold); outline-offset:2px; }
+  .panel, .meter, .guests, details.fold, .ticket, .gcard { border-radius:10px; }
+  .mini, .school, .seg, .icon-btn, .av { border-radius:8px; }
+  .bar i { background:var(--gold); }
+  .chip.on { background:var(--text); border-color:var(--text); color:#000; }
+  .seg button.on { color:var(--text); }
+  .cam-idle .cam-ico { background:var(--gold); color:#0d0a04; }
+  .verdict.check { background:var(--text); }
 </style>
 </head>
 <body>
@@ -393,7 +417,7 @@
     <button class="icon-btn hidden" id="backBtn" aria-label="Back"><svg><use href="#i-back"/></svg></button>
     <div class="brand" id="brand">
       <svg id="brandLogo"><use href="#logo"/></svg>
-      <span class="word" id="brandWord"><small class="tag">LFIGP</small>Bouncer</span>
+      <span class="word" id="brandWord">Bouncer</span>
       <span class="crumb hidden" id="crumb"></span>
     </div>
     <span class="live off" id="live"><i></i><span id="liveTxt">offline</span></span>
