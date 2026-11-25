@@ -552,6 +552,7 @@
     <div class="stack" style="margin:14px 0">
       <button class="btn btn-pink" id="scanBtn"><svg><use href="#i-scan"/></svg>Scan tickets</button>
       <button class="btn btn-ghost admin-only" id="shareBtn"><svg><use href="#i-share"/></svg>Share sign-up link</button>
+      <div class="muted" id="offReady" style="font-size:13px;text-align:center"></div>
     </div>
     <div class="group admin-only">
     <details class="fold admin-only" id="limFold">
@@ -636,7 +637,7 @@
 
   <!-- SCAN -->
   <section id="vScan" class="hidden">
-    <div class="offline-note hidden" id="offNote">No internet. Scans are checked against the saved guest list and will sync to the sheet when you are back online.</div>
+    <div class="offline-note hidden" id="offNote">No internet. Scans are checked against the guest list saved on this phone and are sent to the sheet when you are back online.</div>
     <div class="scanbar"><span class="muted">Checked in</span><b><span id="sIn">0</span><span class="muted" style="font-size:16px"> / <span id="sUp">0</span></span></b></div>
     <div class="cam" id="camBox">
       <video id="camVideo" playsinline muted autoplay></video>
@@ -702,9 +703,11 @@
     <button class="btn btn-line" id="gmClose" type="button" style="width:100%">Close</button>
   </div>
 </div>
+<div id="syncWarn" class="hidden" role="alert" style="position:fixed;left:12px;right:12px;bottom:14px;z-index:60;padding:14px;border-radius:10px;background:#d1343b;color:#fff;font-weight:700;line-height:1.35"></div>
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
+  document.getElementById('syncWarn').onclick = function () { this.classList.add('hidden'); };
   var store = {
     get: function (k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
     set: function (k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
@@ -714,7 +717,19 @@
   var cfg = { url: BASE, key: store.get('ev_key'), me: store.get('ev_me') };
   function jget(k, d) { try { return JSON.parse(store.get(k)) || d; } catch (e) { return d; } }
   function jset(k, v) { store.set(k, JSON.stringify(v)); }
-  var queue = jget('bq_queue', []), flushing = false;
+  // Guest lists are kept on the phone so the door works with no internet at all.
+  // If the phone's storage is full, the small photos are dropped first so the list itself always fits.
+  function saveGuests(id, list) {
+    var ok = false;
+    try { localStorage.setItem('bq_g_' + id, JSON.stringify(list)); ok = true; }
+    catch (e) {
+      try { localStorage.setItem('bq_g_' + id, JSON.stringify(list.map(function (g) { var c = {}; for (var k in g) if (k !== 'thumb') c[k] = g[k]; return c; }))); ok = true; } catch (e2) {}
+    }
+    if (ok) store.set('bq_gt_' + id, String(Date.now()));
+    return ok;
+  }
+  function savedAt(id) { return Number(store.get('bq_gt_' + id)) || 0; }
+  var queue = jget('bq_queue', []), flushing = false, clash = [];
   var events = jget('bq_events', []), cur = null, guests = [], filter = 'all', view = '', history = [];
   var scanner = null, busy = false, lastScan = null, pending = 0, pendingAt = 0, lastOk = 0;
   var LIVE_MS = 6000;
@@ -762,10 +777,16 @@
     var item = queue[0];
     api(item.action, item.params).then(function (r) {
       queue.shift(); jset('bq_queue', queue); flushing = false; paintLive();
-      if (queue.length) flush(); else refresh();
+      // A ticket this phone let in while offline had already been used on another phone, or was removed meanwhile.
+      if (item.action === 'scan' && !item.params.peek && r && r.ok && r.found && (r.alreadyCheckedIn || r.removed || r.suspicious)) clash.push(r.name || item.params.code);
+      if (queue.length) flush();
+      else {
+        refresh();
+        if (clash.length) { var w = $('syncWarn'); w.textContent = 'While this phone was offline, ' + (clash.length === 1 ? 'this ticket was' : 'these ' + clash.length + ' tickets were') + ' let in here but had already been used or removed elsewhere: ' + clash.join(', ') + '. Tap to close.'; w.classList.remove('hidden'); clash = []; }
+      }
     }).catch(function () { flushing = false; paintLive(); });
   }
-  window.addEventListener('online', function () { flush(); refresh(); });
+  window.addEventListener('online', function () { flush(); refresh(); setTimeout(function () { syncAll(); }, 3000); });
   window.addEventListener('offline', function () { setLive(false); });
 
   /* ---------- navigation ---------- */
@@ -863,6 +884,38 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden) refresh(); });
   setInterval(function () { if (navigator.onLine === false) setLive(false); else if (!online && lastOk && Date.now() - lastOk < 15000) setLive(true); }, 4000);
 
+  /* ---------- always ready for offline ----------
+     Whenever the phone has internet, the guest list of every event that is not finished is saved on it, quietly, every few minutes.
+     So nobody has to open an event "one last time" before losing signal: the door works from whatever was saved last. */
+  var syncAt = {}, syncing = false, ocrWarm = false;
+  function syncAll() {
+    if (syncing || !cfg.key || navigator.onLine === false || queue.length) return;
+    var todo = events.filter(function (e) {
+      if (e.status === 'Done' || e.missing) return false;
+      if (cur && cur.id === e.id && (view === 'vEvent' || view === 'vScan')) return false;   // that one is refreshing itself
+      return Date.now() - Math.max(syncAt[e.id] || 0, savedAt(e.id)) > 180000;
+    });
+    // Events that use 3 words need the word reader's files on the phone too.
+    if (!ocrWarm && events.some(function (e) { return e.status !== 'Done' && e.ticket === 'words'; })) { ocrWarm = true; loadOcr().catch(function () { ocrWarm = false; }); }
+    if (!todo.length) return;
+    syncing = true; var e = todo[0]; syncAt[e.id] = Date.now();
+    api('guests', { event: e.id }).then(function (r) {
+      syncing = false;
+      if (r && r.ok && r.guests) { saveGuests(e.id, r.guests); paintReady(); }
+      setTimeout(syncAll, 500);
+    }).catch(function () { syncing = false; });
+  }
+  setInterval(function () { if (!document.hidden) syncAll(); }, 60000);
+  // One line that says what is saved on this phone for the open event.
+  function paintReady() {
+    var el = $('offReady'); if (!el || !cur) return;
+    var at = savedAt(cur.id), n = guests.length;
+    if (!at) { el.textContent = 'Not saved on this phone yet. Connect to the internet once to save the guest list.'; return; }
+    var d = new Date(at), same = d.toDateString() === new Date().toDateString();
+    var when = (same ? '' : d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' }) + ', ') + ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2);
+    el.textContent = 'Saved on this phone at ' + when + ' (' + n + (n === 1 ? ' guest' : ' guests') + '). Scanning works without internet.';
+  }
+
   /* ---------- events ---------- */
   function loadEvents() {
     if (!events.length) $('evMsg').textContent = 'Loading your events…';
@@ -871,6 +924,10 @@
       pending = Math.max(0, pending - 1);
       if (!r.ok) { $('evMsg').textContent = r.error; return; }
       events = r.events; jset('bq_events', events); $('evMsg').textContent = ''; renderEvents();
+      // Free the space used by events that no longer exist, then keep every active event saved for offline.
+      try { var keep = {}; events.forEach(function (e) { keep[e.id] = 1; });
+        for (var i = localStorage.length - 1; i >= 0; i--) { var k = localStorage.key(i), m = /^bq_gt?_(.+)$/.exec(k || ''); if (m && !keep[m[1]]) localStorage.removeItem(k); } } catch (e) {}
+      syncAll();
     }).catch(function () { pending = Math.max(0, pending - 1); $('evMsg').textContent = events.length ? 'Offline. Showing your saved events.' : 'No internet yet. Connect once to load your events.'; renderEvents(); });
   }
   function ticketCard(e) {
@@ -954,6 +1011,7 @@
   function renderEventHeader() {
     $('eName').textContent = cur.name;
     $('crumb').textContent = cur.name;
+    paintReady();
     $('ePill').className = 'pill ' + cur.status; $('ePill').textContent = cur.status;
     $('eSub').textContent = [fmtDay(cur.date), cur.location, cur.price].filter(Boolean).join(', ');
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
@@ -1039,7 +1097,7 @@
         var j = justIn[g.id]; if (j && !g.checkedIn && Date.now() - j.at < 120000) { g.checkedIn = true; g.time = j.time; g.by = cfg.me; }
         if (justPaid[g.id] && !g.paid && Date.now() - justPaid[g.id] < 120000) g.paid = true;
       });
-      Object.assign(cur, r.event); guests = r.guests; gAt[id] = Date.now(); jset('bq_g_' + id, guests); setStats(r.stats);
+      Object.assign(cur, r.event); guests = r.guests; gAt[id] = Date.now(); saveGuests(id, guests); paintReady(); setStats(r.stats);
       if (view === 'vEvent') { renderEventHeader(); renderGuests(); renderSchools(); }
     }).catch(function () { pending = Math.max(0, pending - 1); });
   }
@@ -1315,7 +1373,7 @@
     if (evId && evId !== here) {
       var other = events.find(function (e) { return String(e.id).toUpperCase() === evId; });
       buzz([200, 100, 200]); verdict('bad', 'Wrong night', 'Ticket is for another event', other ? other.name : '', '', null);
-      api('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 }).catch(function () {});
+      api('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 }).catch(function () { enqueue('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 }); });
       return;
     }
     var g = gw || guests.find(function (x) { return x.id.toUpperCase() === t; });
@@ -1329,16 +1387,20 @@
       buzz([200, 100, 200]); verdict('bad', 'Not on the list', 'This ticket is not in this event', '', '', null);
       return verify(code, 'missing');
     }
-    // The saved list is old (phone was asleep or offline): ask Google before deciding.
+    // The saved list is old (phone was asleep or offline). No internet: decide from the saved list straight away.
+    if (!online || navigator.onLine === false) return offlineScan(code);
+    // Internet looks up: ask Google, but never keep the door waiting more than a few seconds on a bad signal.
     verdict('wait', 'Checking…', '', '', '', null);
+    var settled = false, slow = setTimeout(function () { if (settled || pendingCode !== code) return; settled = true; offlineScan(code); }, 3500);
     api('scan', { event: cur.id, code: code, peek: 1 }).then(function (r) {
+      if (settled) return; settled = true; clearTimeout(slow);
       if (pendingCode !== code) return;
       if (r && r.ok && r.found && r.eligible && !r.alreadyCheckedIn) {
         if (r.photo) bigPhotos[cur.id + ':' + r.id] = r.photo;
         return askConfirm(code, { id: r.id, name: r.name, grade: r.grade, school: r.school, paid: r.paid, check: r.check, thumb: '' });
       }
       lookup(code);
-    }).catch(function () { setLive(false); offlineScan(code); });
+    }).catch(function () { if (settled) return; settled = true; clearTimeout(slow); setLive(false); offlineScan(code); });
   }
   // Background double-check of what the screen shows. Also writes refusals in the scan log.
   function verify(code, shown) {
@@ -1371,7 +1433,10 @@
         askConfirm(code, { id: r.id, name: r.name, grade: r.grade, school: r.school, paid: r.paid, check: r.check, thumb: (lg && lg.thumb) || '' });
         if (!bp(r.id)) verify(code, 'confirm');
       }
-    }).catch(function () {});
+    }).catch(function () {
+      // No internet: keep the refusal for the scan log, to be sent when back online. (A let-in is queued by Let in itself.)
+      if (shown !== 'confirm') enqueue('scan', { event: cur.id, code: code, peek: 1, nophoto: 1, why: 1 });
+    });
   }
   function showConfirm(on) { $('confirm2').classList.toggle('hidden', !on); if (on) $('nextBtn').classList.add('hidden'); }
   function askConfirm(code, g) {
@@ -1441,11 +1506,14 @@
     if (c.indexOf('|') > 0) { evId = c.split('|')[0]; t = c.split('|')[1]; }
     var gw0 = guestByWords(String(code).replace(/^W:/i, ''));
     if (gw0) { evId = cur.id.toUpperCase(); t = gw0.id.toUpperCase(); c = evId + '|' + t; }
-    enqueue('scan', { event: cur.id, code: c });
-    if (evId && evId !== cur.id.toUpperCase()) { buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', 'Saved offline', '', null); }
+    // Only a real let-in is sent as a check-in once back online. A refusal is only written in the scan log,
+    // so someone turned away offline does not get their ticket used up later.
+    var note = function () { enqueue('scan', { event: cur.id, code: c, peek: 1, nophoto: 1, why: 1 }); };
+    if (evId && evId !== cur.id.toUpperCase()) { note(); buzz([200, 100, 200]); return verdict('bad', 'Wrong night', 'Ticket is for another event', 'Saved offline', '', null); }
     var g = guests.find(function (x) { return x.id.toUpperCase() === t; });
     scanPhoto = (g && g.thumb) || '';
-    if (!g) { buzz([200, 100, 200]); return verdict('bad', 'Not on the list', 'Not in the saved guest list', 'Offline: if they signed up very recently, check again once online.', '', null); }
+    if (!g || g.removed || g.suspicious || [11, 12].indexOf(Number(g.grade)) < 0 || g.checkedIn) note(); else enqueue('scan', { event: cur.id, code: c });
+    if (!g) { buzz([200, 100, 200]); var sa = savedAt(cur.id), sd = sa ? new Date(sa) : null; return verdict('bad', 'Not on the list', 'Not in the guest list saved on this phone', sd ? 'Offline. The list was saved at ' + ('0' + sd.getHours()).slice(-2) + ':' + ('0' + sd.getMinutes()).slice(-2) + '. Anyone who signed up after that is not on it yet.' : 'Offline, and no guest list is saved on this phone yet.', '', null); }
     var who = g.name, what = 'Grade ' + g.grade + (g.school ? ', ' + g.school : '') + ', ' + (g.paid ? 'paid' : 'not paid');
     if (g.removed) { buzz([400, 120, 400, 120, 400]); return verdict('bad', g.removed === 'ban' ? 'Banned' : g.removed === 'full' ? 'Cancelled' : 'Removed', who, (g.reason || 'Taken off the list') + '. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
     if (g.suspicious) { buzz([400, 120, 400, 120, 400]); return verdict('bad', 'Suspicious', who, (g.reason || 'Linked to someone on the Blocked list') + '. Do not let in.', 'Tell them to text Andrea, ' + g.id, null); }
@@ -1686,7 +1754,7 @@
       go2();
     });
   }
-  if (!cfg.key) go('vSettings', false); else { go('vEvents', false); api('ping', { base: BASE }).then(function (r) { if (r.ok) { cfg.me = r.name; store.set('ev_me', r.name); setRole(r.role); sayHello(); weakNote(r); } }).catch(function () {}); }
+  if (!cfg.key) go('vSettings', false); else { go('vEvents', false); api('ping', { base: BASE }).then(function (r) { if (r.ok) { cfg.me = r.name; store.set('ev_me', r.name); setRole(r.role); sayHello(); weakNote(r); setTimeout(syncAll, 2500); } }).catch(function () {}); }
 })();
 </script>
 </body>
