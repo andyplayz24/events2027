@@ -260,7 +260,7 @@
         </div>
         <div class="field">
           <label for="phone">WhatsApp number</label>
-          <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="050 123 4567" required maxlength="20">
+          <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="Any country, e.g. 050 123 4567" required maxlength="20">
         </div>
         <div class="field">
           <label for="gender">Gender</label>
@@ -435,6 +435,18 @@
     return fetch(API, { method: 'POST', body: JSON.stringify(p), headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         credentials: 'omit', redirect: 'follow' }).then(function (r) { return r.json(); });
   }
+  // Lots of people at the same moment: when the server says it is busy (or doesn't answer properly), the page waits a
+  // little and tries again by itself. Signing up twice with the same details just gives the same ticket back.
+  function callR(p, tries, onWait) {
+    function again() {
+      if (onWait) onWait();
+      return new Promise(function (ok) { setTimeout(ok, 1200 + Math.random() * 2800); }).then(function () { return callR(p, tries - 1, onWait); });
+    }
+    return call(p).then(function (res) {
+      var busy = res && !res.ok && (res.busy || /lock timeout|too many|simultaneous|lots of people|try again in a minute/i.test(res.error || ''));
+      return busy && tries > 0 ? again() : res;
+    }, function (e) { if (tries > 0) return again(); throw e; });
+  }
 
   // Title letters: split once so each letter can arrive on its own. Screen readers still get the whole title.
   function kinetic(el) {
@@ -491,11 +503,14 @@
   // Only Andrea can lift it, by typing YES in the "Unblock" column of the sheet's "Blocked" tab.
   // Blocked once = blocked for every event on this phone.
   var BK = 'lfigp_blocked', BI = 'lfigp_bi';
+  // Phone numbers no longer block anyone: a phone that was blocked for its number is let back in straight away.
+  try { if (JSON.parse(store.get(BI) || '{}').why === 'phone') { store.del(BK); store.del(BI); } } catch (e) {}
   if (store.get(BK)) showBlocked();
   var FB = 'lfigp_fb_' + EVENT_ID;
   var FULL_TXT = 'Sorry, this event is fully booked. See you at the next one!';
   var deviceCheck = call({ action: 'checkDevice', device: DEVICE, event: EVENT_ID }).then(function (r) {
     if (r && r.fullyBooked) store.set(FB, '1');
+    if (r && r.blocked && r.why === 'phone') return;
     if (r && r.blocked) {
       var old = {}; try { old = JSON.parse(store.get(BI) || '{}'); } catch (e) {}
       if (r.why && !old.why) { old.why = r.why; old.grade = r.grade || old.grade; store.set(BI, JSON.stringify(old)); }
@@ -577,10 +592,11 @@
     // Speed: the form shows straight away (they can start typing); the event name/status fill in a second later.
     if (store.get(FB)) { $('closedMsg').textContent = FULL_TXT; show('vClosed'); }
     else { show('vForm'); setTimeout(function () { loadFace().catch(function () {}); }, 300); }
-    Promise.all([call({ action: 'eventInfo', event: EVENT_ID }), deviceCheck]).then(function (all) {
+    Promise.all([callR({ action: 'eventInfo', event: EVENT_ID }, 8), deviceCheck]).then(function (all) {
       var r = all[0];
       if (blocked) return;
-      if (!r || !r.ok) { show('vInvalid'); return; }
+      // Only a link that really doesn't exist shows "invalid". A busy server just leaves the form up.
+      if (!r || !r.ok) { if (r && r.error === 'not_found') show('vInvalid'); return; }
       var ev = r.event;
       document.title = ev.name;
       // Some events don't ask for a selfie (the organisers choose per event).
@@ -781,12 +797,9 @@
         words.some(function (w) { return /^[A-Za-z'.-]+$/.test(w) && w.length > 3 && !/[aeiouy]/i.test(w); })) { err.textContent = 'Please enter your real first and last name.'; return; }
     var pd = phone.replace(/\D/g, '');
     if (!pd) { err.textContent = 'Please enter your WhatsApp number.'; return; }
-    if (!(/^(?:00971|971|0)?5[024568]\d{7}$/.test(pd) || (/^(\+|00)/.test(phone) && pd.replace(/^00/, '').length >= 10 && pd.replace(/^00/, '').length <= 15 && !/^(\d)\1+$/.test(pd)))) {
-      // A fake-looking WhatsApp number is treated like a wrong grade: this device is blocked.
-      showBlocked({ name: name, email: email, grade: grade, phone: phone, why: 'phone' });
-      call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, device: DEVICE }).catch(function () {});
-      return;
-    }
+    // Any number from any country works: 8 to 15 digits, with or without + in front. Nobody is blocked for a phone number.
+    var pn = pd.replace(/^00/, '');
+    if (pn.length < 8 || pn.length > 15 || /^(\d)\1+$/.test(pn)) { err.textContent = 'That WhatsApp number doesn\'t look complete. Check it and try again.'; return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { err.textContent = 'Please enter a valid email address.'; return; }
     var btn = $('btn');
     if (SHOW_PHOTO && checking) {
@@ -797,7 +810,10 @@
     }
     if (NEED_PHOTO && !PHOTO) { err.textContent = 'Add a photo of your face: tap Take a selfie or Choose from your photos.'; return; }
     btn.disabled = true; btn.textContent = 'Getting your ticket…';
-    call({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: SHOW_PHOTO ? PHOTO : '', thumb: SHOW_PHOTO ? THUMB : '', device: DEVICE }).then(function (res) {
+    var slow = setTimeout(function () { if (btn.disabled) btn.textContent = 'Lots of people right now. Stay on this page…'; }, 9000);
+    callR({ action: 'signup', event: EVENT_ID, name: name, grade: grade, email: email, phone: phone, gender: gender, school: school, photo: SHOW_PHOTO ? PHOTO : '', thumb: SHOW_PHOTO ? THUMB : '', device: DEVICE }, 7,
+          function () { btn.textContent = 'Lots of people right now. Stay on this page…'; }).then(function (res) {
+      clearTimeout(slow);
       if (res && res.fullyBooked) { store.set(FB, '1'); $('closedMsg').textContent = FULL_TXT; show('vClosed'); return; }
       if (res && res.full) { $('closedMsg').textContent = res.error; show('vClosed'); return; }
       if (res && res.waitlist) {
@@ -817,12 +833,14 @@
       $('tName').textContent = res.name; $('tGrade').textContent = res.grade; $('tId').textContent = res.id; setSchool(res.school || school);
       ticket = { name: res.name, grade: res.grade, school: res.school || school, id: res.id, code: res.code, words: res.words || '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
       $('mailHint').textContent = 'We also emailed you this QR code. Show it at the door. It works once, so don\'t share it.';
+      if (res.emailed === false) $('mailHint').textContent = 'Save this QR code now: tap Save or take a screenshot. The email could not be sent. Show it at the door. It works once, so don\'t share it.';
       $('tTag').textContent = 'You\'re on the list'; $('qr').className = '';
       $('qr').innerHTML = '';
       $('saveBtn').classList.remove('hidden'); $('saveBtn').textContent = 'Save to Photos';
       if (res.words) {
         $('tWords').textContent = res.words.split(' ').join('\n'); $('tWords').classList.remove('hidden'); $('tId').textContent = '';
         $('mailHint').textContent = 'We also emailed you a picture of these words. Show them at the door. They work once, so keep them to yourself.';
+        if (res.emailed === false) $('mailHint').textContent = 'Save these words now: tap Save or take a screenshot. The email could not be sent. Show them at the door. They work once, so keep them to yourself.';
       } else {
         $('tWords').classList.add('hidden');
         new QRCode($('qr'), { text: res.code, width: 440, height: 440, colorDark: '#000000', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
@@ -831,7 +849,8 @@
       show('vTicket'); watchTicket(res.id);
       try { if (navigator.vibrate) navigator.vibrate([30, 50, 70]); } catch (e) {}
     }).catch(function () {
-      err.textContent = 'Could not connect. Check your internet and try again.';
+      clearTimeout(slow);
+      err.textContent = 'Could not connect. Check your internet, then tap Get my ticket again.';
       btn.disabled = false; btn.textContent = 'Get my ticket';
     });
   });
