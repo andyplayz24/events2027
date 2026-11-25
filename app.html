@@ -415,6 +415,16 @@
     details.fold[open] > .fbody { animation:foldIn .18s ease-out; }
     .btn:active, .chip:active, .icon-btn:active, .pay:active, .seg button:active { transform:scale(.975); }
   }
+
+  /* Door result flash: the whole screen edge lights green, amber or red for half a second, so staff catch it without reading. */
+  #flash { position:fixed; inset:0; z-index:40; pointer-events:none; opacity:0; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes flashIn { 0% { opacity:0; } 18% { opacity:1; } 100% { opacity:0; } }
+    @keyframes flashBad { 0% { opacity:0; } 14% { opacity:1; } 100% { opacity:0; } }
+    .verdict.ok:not(.hidden) ~ #flash { box-shadow:inset 0 0 0 6px #1f9d5c, inset 0 0 110px rgba(31,157,92,.6); animation:flashIn .6s ease-out; }
+    .verdict.warn:not(.hidden) ~ #flash { box-shadow:inset 0 0 0 6px #e0a43a, inset 0 0 110px rgba(224,164,58,.55); animation:flashIn .6s ease-out; }
+    .verdict.bad:not(.hidden) ~ #flash { box-shadow:inset 0 0 0 6px #d1343b, inset 0 0 130px rgba(209,52,59,.65); animation:flashBad .75s ease-out; }
+  }
 </style>
 </head>
 <body>
@@ -657,6 +667,7 @@
     </div>
     <p class="muted" style="font-size:13px;text-align:center;margin:14px 0 0">Camera acting up? <a href="camtest.html" style="color:var(--pink2)">Open the camera check</a></p>
     <div id="fileReader" style="position:absolute;left:-9999px;width:300px;height:300px"></div>
+    <div id="flash" aria-hidden="true"></div>
   </section>
 
   <!-- SHARE -->

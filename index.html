@@ -145,6 +145,8 @@
   .tix .meta { font-size:14px; opacity:.62; margin-top:6px; }
   .tix .holder { margin-top:22px; font-size:12px; opacity:.55; }
   .tix .holder-v { font-size:17px; font-weight:650; margin-top:2px; }
+  .tix #tSchoolL { margin-top:14px; }
+  .tix #tSchoolV span { overflow-wrap:anywhere; }
   .tix .tear { border-top:1px dashed rgba(20,17,11,.3); margin:0 28px; }
   .tix .stub { padding:24px 28px 32px; gap:12px; }
   #qr img, #qr canvas { width:208px; height:208px; }
@@ -180,6 +182,45 @@
     button:active, .phBtn:active, .wa:active { transform:scale(.985); }
     button:disabled { position:relative; overflow:hidden; opacity:.85; }
     button:disabled::after { content:""; position:absolute; left:0; bottom:0; width:38%; height:3px; background:rgba(13,10,4,.55); animation:loadbar 1.1s ease-in-out infinite; }
+  }
+
+
+  /* ---- Showpiece layer. The title arrives letter by letter under a slow stage light, a line at the top fills as the form
+     is completed, and the ticket is dealt onto the screen, catches the light and tilts under a finger.
+     The QR code and the 3 words are never covered or moved while someone is scanning them. ---- */
+  body::before { content:""; position:fixed; z-index:0; pointer-events:none; left:50%; top:0; width:170vmax; height:120vmax; margin:-70vmax 0 0 -85vmax;
+    background:radial-gradient(closest-side, rgba(216,192,142,.19), rgba(216,192,142,.06) 52%, rgba(216,192,142,0) 72%); }
+  .wrap { position:relative; z-index:1; }
+  h1 .w { display:inline-block; white-space:nowrap; }
+  h1 .c { display:inline-block; }
+  #tTag { font-stretch:125%; font-weight:700; font-size:30px; line-height:1.05; letter-spacing:-.02em; color:var(--text); }
+  label { transition:color .15s ease; }
+  .field:focus-within > label { color:var(--gold); }
+  #prog { position:fixed; left:0; top:0; z-index:5; width:100%; height:3px; background:var(--gold); transform-origin:left center; transform:scaleX(0); transition:transform .45s cubic-bezier(.2,.8,.2,1); pointer-events:none; }
+  .tix { transition:transform .4s cubic-bezier(.2,.8,.2,1); touch-action:pan-y; will-change:transform; }
+  .tix.tilt { transition:none; }
+  .tix .top { position:relative; overflow:hidden; }
+  .tix .top::before { content:""; position:absolute; inset:0; pointer-events:none; opacity:0; transition:opacity .3s ease;
+    background:radial-gradient(240px circle at var(--mx,50%) var(--my,0%), rgba(255,255,255,.95), rgba(226,196,130,.4) 42%, rgba(255,255,255,0) 70%); }
+  .tix.tilt .top::before { opacity:1; }
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes drift { from { transform:translate3d(-10vw,-2vh,0) scale(1); } to { transform:translate3d(10vw,4vh,0) scale(1.14); } }
+    @keyframes charIn { from { opacity:0; transform:translateY(.7em) rotate(8deg); } to { opacity:1; transform:none; } }
+    @keyframes glint { 0%, 100% { color:inherit; } 45% { color:#ecc46a; } }
+    @keyframes deal { 0% { opacity:0; transform:perspective(900px) translateY(110px) rotateX(-64deg) scale(.84); } 62% { opacity:1; transform:perspective(900px) translateY(-8px) rotateX(8deg) scale(1.012); } 100% { opacity:1; transform:perspective(900px) translateY(0) rotateX(0deg) scale(1); } }
+    @keyframes foil { from { transform:translateX(-140%) skewX(-18deg); } to { transform:translateX(330%) skewX(-18deg); } }
+    @keyframes ready { 0%, 100% { transform:none; } 50% { transform:scale(1.03); } }
+    body::before { animation:drift 16s ease-in-out infinite alternate; }
+    .view.on > div:first-child:has(h1.kin) { animation:none; }
+    h1.kin .c { animation:charIn .62s cubic-bezier(.2,.8,.2,1) backwards, glint .9s ease-in-out backwards; animation-delay:calc(var(--i) * 28ms + 60ms), calc(var(--i) * 34ms + 620ms); }
+    h1.kin ~ .sub { animation:rise .5s cubic-bezier(.2,.8,.2,1) .35s both; }
+    #vTicket.on > .tix { animation:deal 1s cubic-bezier(.2,.8,.2,1) .12s backwards; }
+    #vTicket.on > .tix::after { animation-delay:.75s; }
+    #vTicket.on #qr, #vTicket.on .words { animation-delay:.8s; }
+    #vTicket.on > #saveBtn, #vTicket.on > #mailHint { animation-delay:.95s; }
+    #vTicket.on .tix .top::after { content:""; position:absolute; top:-20%; bottom:-20%; left:0; width:34%; pointer-events:none;
+      background:linear-gradient(90deg, rgba(255,255,255,0), rgba(255,255,255,.9) 45%, rgba(226,196,130,.55) 62%, rgba(255,255,255,0)); animation:foil 1.15s ease-out 1s both; }
+    #btn.ready { animation:ready .55s ease 1; }
   }
 
   .hidden { display:none !important; }
@@ -260,6 +301,8 @@
           <div class="meta evMeta"></div>
           <div class="holder"><span>Guest</span><span>Grade</span></div>
           <div class="holder-v"><span id="tName"></span><span id="tGrade"></span></div>
+          <div class="holder hidden" id="tSchoolL"><span>School</span></div>
+          <div class="holder-v hidden" id="tSchoolV"><span id="tSchool"></span></div>
         </div>
         <div class="tear"></div>
         <div class="stub">
@@ -318,6 +361,8 @@
   var current = 'vLoading', blocked = false, ticket = null;
 
   // "Save ticket": draws the ticket as one picture and opens the phone's share sheet: "Save Image" puts it in Photos, WhatsApp sends it. Computers download it.
+  // The school they signed up with sits on the ticket under the name, so the door can read all three.
+  function setSchool(v) { v = String(v || '').trim(); $('tSchool').textContent = v; $('tSchoolL').classList.toggle('hidden', !v); $('tSchoolV').classList.toggle('hidden', !v); }
   function ticketImage() {
     var W = 1080, H = 1620, c = document.createElement('canvas'); c.width = W; c.height = H;
     var x = c.getContext('2d');
@@ -341,10 +386,16 @@
     x.font = '600 28px -apple-system, Segoe UI, Roboto, sans-serif'; x.fillText('Guest', 120, 480); x.textAlign = 'right'; x.fillText('Grade', W - 120, 480);
     x.fillStyle = '#000000'; x.font = '700 46px -apple-system, Segoe UI, Roboto, sans-serif';
     x.fillText(String(ticket.grade), W - 120, 540); x.textAlign = 'left'; x.fillText(String(ticket.name).slice(0, 26), 120, 540);
-    x.strokeStyle = '#e3e3e3'; x.lineWidth = 2; x.setLineDash([]); x.beginPath(); x.moveTo(110, 610); x.lineTo(W - 110, 610); x.stroke(); x.setLineDash([]);
+    var sy = 0;   // extra room when the school line is there
+    if (ticket.school) {
+      sy = 110; x.fillStyle = '#777777'; x.font = '600 28px -apple-system, Segoe UI, Roboto, sans-serif'; x.fillText('School', 120, 610);
+      x.fillStyle = '#000000'; x.font = '700 46px -apple-system, Segoe UI, Roboto, sans-serif'; x.fillText(String(ticket.school).slice(0, 34), 120, 670);
+    }
+    var qs = sy ? 640 : 720;
+    x.strokeStyle = '#e3e3e3'; x.lineWidth = 2; x.setLineDash([]); x.beginPath(); x.moveTo(110, 610 + sy); x.lineTo(W - 110, 610 + sy); x.stroke(); x.setLineDash([]);
     var q = document.querySelector('#qr canvas') || document.querySelector('#qr img');
-    if (q) { x.imageSmoothingEnabled = false; x.drawImage(q, (W - 720) / 2, 660, 720, 720); }
-    x.textAlign = 'center'; x.font = '700 44px Archivo, -apple-system, Segoe UI, Roboto, sans-serif'; x.fillText(ticket.id, W / 2, 1450);
+    if (q) { x.imageSmoothingEnabled = false; x.drawImage(q, (W - qs) / 2, 660 + sy, qs, qs); }
+    x.textAlign = 'center'; x.fillStyle = '#000000'; x.font = '700 44px Archivo, -apple-system, Segoe UI, Roboto, sans-serif'; x.fillText(ticket.id, W / 2, 1450 + (sy ? 20 : 0));
     return c;
   }
   function roundRect(x, l, t, w, h, r) { x.beginPath(); x.moveTo(l + r, t); x.arcTo(l + w, t, l + w, t + h, r); x.arcTo(l + w, t + h, l, t + h, r); x.arcTo(l, t + h, l, t, r); x.arcTo(l, t, l + w, t, r); x.closePath(); }
@@ -376,9 +427,24 @@
     return fetch(API, { method: 'POST', body: JSON.stringify(p), headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                         credentials: 'omit', redirect: 'follow' }).then(function (r) { return r.json(); });
   }
+
+  // Title letters: split once so each letter can arrive on its own. Screen readers still get the whole title.
+  function kinetic(el) {
+    try {
+      var t = el.textContent, i = 0; if (!t || !t.trim()) return;
+      el.setAttribute('aria-label', t); el.textContent = '';
+      t.split(' ').forEach(function (w, wi, arr) {
+        var ws = document.createElement('span'); ws.className = 'w'; ws.setAttribute('aria-hidden', 'true');
+        Array.from(w).forEach(function (ch) { var c = document.createElement('span'); c.className = 'c'; c.style.setProperty('--i', i++); c.textContent = ch; ws.appendChild(c); });
+        el.appendChild(ws); if (wi < arr.length - 1) el.appendChild(document.createTextNode(' '));
+      });
+      el.classList.add('kin');
+    } catch (e) {}
+  }
   function show(id) {
     current = id;
     Array.prototype.forEach.call(document.querySelectorAll('.view'), function (v) { v.classList.toggle('on', v.id === id); });
+    var h = document.querySelector('#' + id + ' h1'); if (h && !h.classList.contains('kin')) kinetic(h);
     window.scrollTo(0, 0);
   }
   function showBlocked(info) {
@@ -405,7 +471,13 @@
     }
     return 'The reason: ' + why + end;
   }
-  function fill(cls, text) { Array.prototype.forEach.call(document.querySelectorAll('.' + cls), function (el) { el.textContent = text; }); }
+  function fill(cls, text) {
+    Array.prototype.forEach.call(document.querySelectorAll('.' + cls), function (el) {
+      if (el.getAttribute('data-t') === String(text)) return;   // same text: leave it alone, so nothing re-animates
+      el.setAttribute('data-t', String(text)); el.textContent = text; el.classList.remove('kin');
+      if (el.tagName === 'H1' && el.closest('.view.on')) kinetic(el);
+    });
+  }
 
   // A device that was turned away stays blocked: refreshing or reopening the link shows the same screen.
   // Only Andrea can lift it, by typing YES in the "Unblock" column of the sheet's "Blocked" tab.
@@ -446,8 +518,8 @@
     if (r.state !== 'valid') { r.code = EVENT_ID.toUpperCase() + '|' + r.id; r.state = 'valid'; }
     setTimeout(function () { if (note) { $('mailHint').textContent = note; $('tTag').textContent = note.split('.')[0]; $('saveBtn').classList.add('hidden'); } }, 0);
     fill('evName', r.event); document.querySelector('#vTicket .evMeta').textContent = r.date || ''; document.title = r.event;
-    $('tName').textContent = r.name; $('tGrade').textContent = r.grade;
-    ticket = r.state === 'valid' ? { name: r.name, grade: r.grade, id: r.id, code: r.code, words: r.words || '', event: r.event, date: r.date || '' } : null;
+    $('tName').textContent = r.name; $('tGrade').textContent = r.grade; setSchool(r.school);
+    ticket = r.state === 'valid' ? { name: r.name, grade: r.grade, school: r.school || '', id: r.id, code: r.code, words: r.words || '', event: r.event, date: r.date || '' } : null;
     $('saveBtn').classList.toggle('hidden', r.state !== 'valid');
     if (r.state === 'valid' && r.words) {
       $('qr').className = ''; $('qr').innerHTML = ''; $('qr').setAttribute('data-code', r.code);
@@ -721,8 +793,8 @@
         btn.disabled = false; btn.textContent = 'Get my ticket';
         return;
       }
-      $('tName').textContent = res.name; $('tGrade').textContent = res.grade; $('tId').textContent = res.id;
-      ticket = { name: res.name, grade: res.grade, id: res.id, code: res.code, words: res.words || '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
+      $('tName').textContent = res.name; $('tGrade').textContent = res.grade; $('tId').textContent = res.id; setSchool(res.school || school);
+      ticket = { name: res.name, grade: res.grade, school: res.school || school, id: res.id, code: res.code, words: res.words || '', event: res.eventName || document.querySelector('#vTicket .ev').textContent, date: (document.querySelector('#vTicket .evMeta') || {}).textContent || '' };
       $('mailHint').textContent = 'We also emailed you this QR code. Show it at the door. It works once, so don\'t share it.';
       $('tTag').textContent = 'You\'re on the list'; $('qr').className = '';
       $('qr').innerHTML = '';
@@ -736,11 +808,42 @@
       }
       $('qr').setAttribute('data-code', res.code);
       show('vTicket'); watchTicket(res.id);
+      try { if (navigator.vibrate) navigator.vibrate([30, 50, 70]); } catch (e) {}
     }).catch(function () {
       err.textContent = 'Could not connect. Check your internet and try again.';
       btn.disabled = false; btn.textContent = 'Get my ticket';
     });
   });
+
+  /* ---- showpiece: form progress line and the tilting ticket ---- */
+  (function () {
+    try {
+      var prog = document.createElement('div'); prog.id = 'prog'; document.body.appendChild(prog);
+      var ids = ['name', 'email', 'phone', 'gender', 'school', 'grade'];
+      var progress = function () {
+        var on = !!document.querySelector('#vForm.on'), n = 0, tot = ids.length + (NEED_PHOTO ? 1 : 0);
+        ids.forEach(function (i) { if (String($(i).value || '').trim()) n++; });
+        if (NEED_PHOTO && PHOTO) n++;
+        prog.style.transform = 'scaleX(' + (on ? n / tot : 0) + ')';
+        $('btn').classList.toggle('ready', on && n === tot);
+      };
+      $('f').addEventListener('input', progress); $('f').addEventListener('change', progress);
+      setInterval(progress, 700);
+      var t = document.querySelector('.tix'), top = t && t.querySelector('.top');
+      if (t && top && window.PointerEvent) {
+        var set = function (e) {
+          var r = t.getBoundingClientRect(), px = (e.clientX - r.left) / r.width, py = (e.clientY - r.top) / r.height;
+          t.style.transform = 'perspective(900px) rotateX(' + ((0.5 - py) * 9).toFixed(2) + 'deg) rotateY(' + ((px - 0.5) * 13).toFixed(2) + 'deg)';
+          t.style.setProperty('--mx', (px * 100).toFixed(1) + '%');
+          t.style.setProperty('--my', ((e.clientY - r.top) / Math.max(1, top.offsetHeight) * 100).toFixed(1) + '%');
+        };
+        var end = function () { t.classList.remove('tilt'); t.style.transform = ''; };
+        t.addEventListener('pointerdown', function (e) { t.classList.add('tilt'); set(e); });
+        t.addEventListener('pointermove', function (e) { if (t.classList.contains('tilt')) set(e); else if (e.pointerType === 'mouse') { t.classList.add('tilt'); set(e); } });
+        ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) { t.addEventListener(n, end); });
+      }
+    } catch (e) {}
+  })();
 })();
 </script>
 </body>
