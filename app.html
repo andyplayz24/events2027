@@ -554,6 +554,14 @@
       <button class="btn btn-ghost admin-only" id="shareBtn"><svg><use href="#i-share"/></svg>Share sign-up link</button>
       <div class="muted" id="offReady" style="font-size:13px;text-align:center"></div>
     </div>
+    <div class="group admin-only" style="margin-bottom:10px;padding:14px 16px">
+      <label class="lim" for="ePrice">Entry price</label>
+      <div style="display:flex;gap:8px;margin-top:4px">
+        <input id="ePrice" placeholder="150" maxlength="30" autocomplete="off" style="flex:1;min-width:0">
+        <button class="btn btn-small" id="ePriceBtn" type="button">Save price</button>
+      </div>
+      <div class="msg" id="ePriceMsg" style="margin-top:6px">Shown to staff only. The Sheet's Price Paid column follows it.</div>
+    </div>
     <div class="group admin-only">
     <details class="fold admin-only" id="limFold">
       <summary><span>Limits</span><span class="sum" id="limSum">No limits</span></summary>
@@ -614,12 +622,17 @@
     </div>
     <div class="row-between" style="margin-bottom:10px"><div class="eyebrow">Guest list</div><span class="muted" id="gCount" style="font-size:13px"></span></div>
     <input id="search" placeholder="Search names or ticket IDs" style="margin-bottom:10px">
-    <div class="filters" id="filters" style="margin-bottom:12px">
+    <div class="filters" id="filters" style="margin-bottom:6px">
       <button class="chip on" data-f="all">Everyone</button>
       <button class="chip" data-f="in">Came in</button>
       <button class="chip" data-f="out">Not in yet</button>
       <button class="chip" data-f="paid">Paid</button>
       <button class="chip" data-f="unpaid">Not paid</button>
+    </div>
+    <div class="filters" id="gfilters" style="margin-bottom:12px">
+      <button class="chip on" data-g="all">Girls and boys</button>
+      <button class="chip" data-g="Girl" id="gfGirl">Girls only</button>
+      <button class="chip" data-g="Boy" id="gfBoy">Boys only</button>
     </div>
     <div class="guests" id="gList"></div>
     <div class="danger admin-only">
@@ -730,7 +743,7 @@
   }
   function savedAt(id) { return Number(store.get('bq_gt_' + id)) || 0; }
   var queue = jget('bq_queue', []), flushing = false, clash = [];
-  var events = jget('bq_events', []), cur = null, guests = [], filter = 'all', view = '', history = [];
+  var events = jget('bq_events', []), cur = null, guests = [], filter = 'all', gfilter = 'all', view = '', history = [];
   var scanner = null, busy = false, lastScan = null, pending = 0, pendingAt = 0, lastOk = 0;
   var LIVE_MS = 6000;
   var AV = ['#262626', '#2d2d2d', '#333333', '#2a2a2a', '#303030', '#363636'];
@@ -959,7 +972,8 @@
   function openEvent(id) {
     cur = events.find(function (e) { return e.id === id; }) || cur;
     if (!cur) return;
-    guests = jget('bq_g_' + cur.id, []); filter = 'all'; $('search').value = '';
+    guests = jget('bq_g_' + cur.id, []); filter = 'all'; gfilter = 'all'; $('search').value = '';
+    Array.prototype.forEach.call($('gfilters').querySelectorAll('.chip'), function (x) { x.classList.toggle('on', x.getAttribute('data-g') === 'all'); });
     Array.prototype.forEach.call($('filters').querySelectorAll('.chip'), function (x) { x.classList.toggle('on', x.getAttribute('data-f') === 'all'); });
     renderEventHeader(); renderGuests(true);
     $('delConfirm').classList.add('hidden'); $('delBtn').classList.remove('hidden');
@@ -1014,6 +1028,7 @@
     paintReady();
     $('ePill').className = 'pill ' + cur.status; $('ePill').textContent = cur.status;
     $('eSub').textContent = [fmtDay(cur.date), cur.location, cur.price].filter(Boolean).join(', ');
+    if (document.activeElement !== $('ePrice')) $('ePrice').value = cur.price || '';
     Array.prototype.forEach.call($('seg').children, function (b) { b.classList.toggle('on', b.getAttribute('data-s') === cur.status); });
     $('segHint').textContent = HINTS[cur.status] || '';
     $('lBoys').value = cur.boysLimit === undefined ? '' : cur.boysLimit; $('lGirls').value = cur.girlsLimit === undefined ? '' : cur.girlsLimit; $('lTotal').value = cur.totalLimit === undefined ? '' : cur.totalLimit;
@@ -1066,6 +1081,19 @@
       $('limMsg').textContent = 'Sign-ups reopened. The total limit is removed (set a new one any time).';
     }).catch(function () { $('reopenBtn').disabled = false; $('limMsg').textContent = 'No connection. Try again.'; });
   };
+  // Admins can see and change the entry price here. The Sheet reads the same price, so nothing else has to be edited.
+  $('ePriceBtn').onclick = function () {
+    if (!cur) return;
+    var id = cur.id, v = $('ePrice').value.trim();
+    $('ePriceBtn').disabled = true; $('ePriceMsg').textContent = 'Saving…';
+    api('updateEvent', { event: id, price: v }).then(function (r) {
+      $('ePriceBtn').disabled = false;
+      if (!r.ok) { $('ePriceMsg').textContent = r.error || 'Could not save.'; return; }
+      events.forEach(function (e) { if (e.id === id) e.price = r.event.price; });
+      if (cur && cur.id === id) { cur.price = r.event.price; $('ePrice').value = cur.price || ''; $('eSub').textContent = [fmtDay(cur.date), cur.location, cur.price].filter(Boolean).join(', '); }
+      $('ePriceMsg').textContent = v ? 'Saved. The entry price is now ' + v + '.' : 'Saved. No price is set.';
+    }).catch(function () { $('ePriceBtn').disabled = false; $('ePriceMsg').textContent = 'No connection. Try again.'; });
+  };
   $('limBtn').onclick = function () {
     if (!cur) return;
     var b = $('lBoys').value.trim(), g = $('lGirls').value.trim(), t = $('lTotal').value.trim(), gl = $('lG11L').value.trim(), go11 = $('lG11O').value.trim();
@@ -1105,6 +1133,7 @@
     var q = $('search').value.trim().toLowerCase();
     var list = guests.filter(function (g) {
       if (q && g.name.toLowerCase().indexOf(q) < 0 && g.id.toLowerCase().indexOf(q) < 0) return false;
+      if (gfilter !== 'all' && g.gender !== gfilter) return false;
       if (filter === 'in') return g.checkedIn;
       if (filter === 'out') return !g.checkedIn;
       if (filter === 'paid') return g.paid;
@@ -1112,6 +1141,7 @@
       return true;
     }).sort(function (a, b) { return a.name.localeCompare(b.name); });
     var nb = guests.filter(function (g) { return !g.removed && g.gender === 'Boy'; }).length, ng = guests.filter(function (g) { return !g.removed && g.gender === 'Girl'; }).length;
+    $('gfGirl').textContent = 'Girls only (' + ng + ')'; $('gfBoy').textContent = 'Boys only (' + nb + ')';
     $('gCount').textContent = guests.length ? ((list.length === guests.length ? guests.length + ' people' : list.length + ' of ' + guests.length) + ', ' + nb + (nb === 1 ? ' boy, ' : ' boys, ') + ng + (ng === 1 ? ' girl' : ' girls')) : '';
     if (!guests.length) { $('gList').innerHTML = '<div class="empty">' + (loading ? 'Loading guests…' : '<b>No one yet</b>Share the sign-up link to start filling the list.') + '</div>'; return; }
     $('gList').innerHTML = list.map(function (g) {
@@ -1144,6 +1174,14 @@
     });
   }
   $('search').oninput = function () { renderGuests(); };
+  // Girls only / boys only. It works together with the row above (for example: girls who have not paid).
+  Array.prototype.forEach.call($('gfilters').querySelectorAll('.chip'), function (c) {
+    c.onclick = function () {
+      gfilter = c.getAttribute('data-g');
+      Array.prototype.forEach.call($('gfilters').querySelectorAll('.chip'), function (x) { x.classList.toggle('on', x === c); });
+      renderGuests();
+    };
+  });
   Array.prototype.forEach.call($('filters').querySelectorAll('.chip'), function (c) {
     c.onclick = function () {
       filter = c.getAttribute('data-f');
